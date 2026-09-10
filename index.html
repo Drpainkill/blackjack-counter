@@ -492,7 +492,7 @@
           <span><i style="background:linear-gradient(135deg,#7e2b30 50%,#2c4257 50%)"></i>Close call</span>
         </div>
         <table class="lc" id="liveChart"></table>
-        <div class="lc-note" id="lcNote">Solid cell = clear best play. Split-color cell (two letters) = close call — the first letter/color is slightly better. R = surrender, second letter is your play when surrender isn't possible. Yellow frame = the count changed the play vs fresh-shoe strategy (hover to see the normal play). No resplits assumed. In Free Bet: FD = FREE double, FP = FREE split. A small <b class="co-key">€</b> in a corner means the table's cash-out offer beats playing that hand out — at a neutral count nothing is marked, so it only appears once the count has turned the hand against you.</div>
+        <div class="lc-note" id="lcNote">Solid cell = clear best play. Split-color cell (two letters) = close call — the first letter/color is slightly better. R = surrender, second letter is your play when surrender isn't possible. Yellow frame = the count changed the play vs fresh-shoe strategy (hover to see the normal play). No resplits assumed. In Free Bet: FD = FREE double, FP = FREE split. A small <b class="co-key">€</b> in a corner means the cash-out beats playing that hand out by at least 1% of your bet — nothing is marked at a neutral count, and it takes about true count +1.2 before anything appears. Hover for the exact edge. This assumes their price is struck off a full shoe; if it tracks the live one instead, ignore the marks entirely.</div>
         <div class="lc-note" id="pairNote"></div>
       </div>
     </div><!-- /col-mid -->
@@ -972,6 +972,11 @@
   // Solved from four real offers: the table pays 99% of the hand's true
   // value, rounded down to the nearest 5 cents.
   const CASHOUT_PAYS = 0.99;
+  // Their cut is 1% *of the hand's value*, so on a weak hand (a 12 v 10 is worth
+  // under half your stake) a trivial count move already beats it — which marked
+  // dozens of cells at true count +0.5 for a couple of ore. Require the edge to
+  // be worth at least 1% of the BET before saying anything.
+  const CASHOUT_MIN_EDGE = 0.01;
   const LC_CLS = { H: 'lcH', S: 'lcS', D: 'lcDH', P: 'lcP', FD: 'lcFD', FP: 'lcFP', R: 'lcR' };
   const ACT_COLOR = {
     H: '#7e2b30', S: '#2c4257', D: '#8a6a1e', P: '#2c5c46',
@@ -996,10 +1001,10 @@
           : '';
         // Their price comes off a neutral shoe; ours is the shoe as it stands.
         const theirs = CASHOUT_PAYS * (1 + base.ev);
-        const co = theirs > 1 + cur.ev;
+        const co = theirs - (1 + cur.ev) > CASHOUT_MIN_EDGE;
         const bits = [`${row.key} v ${rankLabel(up)}`];
         if (dev) bits.push(`basic: ${base.label}`);
-        if (co) bits.push(`cash out — they pay ~${theirs.toFixed(2)}×, hand is worth ${(1 + cur.ev).toFixed(2)}×`);
+        if (co) bits.push(`cash out — they pay ~${theirs.toFixed(2)}× vs ${(1 + cur.ev).toFixed(2)}×, worth ${(100 * (theirs - 1 - cur.ev)).toFixed(1)}% of your bet`);
         html += `<td class="${LC_CLS[cur.primary]}${dev ? ' dev' : ''}${co ? ' co' : ''}"${style}`
           + ` title="${bits.join(' — ')}">${cur.label}</td>`;
       }
