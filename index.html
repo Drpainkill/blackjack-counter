@@ -206,8 +206,7 @@
 
   .game-cols { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; width: 100%; }
   .col-left { flex: 0 1 520px; min-width: 300px; }
-  .col-mid { flex: 1 1 560px; min-width: 340px; }   /* strategy chart */
-  .col-right { flex: 1 1 660px; min-width: 340px; } /* hand win rate */
+  .col-mid { flex: 1 1 620px; min-width: 340px; }   /* strategy chart */
   .lc-wrap { max-width: 100%; overflow-x: auto; }
   /* Sized by its cells, NOT stretched to the container — on a wide/fullscreen
      window the table keeps its natural width instead of ballooning. It only
@@ -257,18 +256,16 @@
     border: 1px solid rgba(255,255,255,0.08);
   }
   .lc td.dev { outline: 2px solid var(--gold); outline-offset: -2px; }
-  .lc td.lcval { background: #16161d; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .lc td.lcval.v-up { color: var(--gold); }
-  .lc td.lcval.v-dn { color: var(--red-soft); }
-  .lc td.lcval.v-flat { color: var(--muted); }
-  .co-margin { font-size: 0.62rem; color: var(--muted); margin-left: 8px; text-transform: none; letter-spacing: 0; }
-  .co-margin input {
-    background: var(--panel); color: var(--text); border: 1px solid var(--line2);
-    border-radius: 5px; padding: 2px 5px; width: 56px; font-size: 0.7rem; font-weight: 700;
-    font-variant-numeric: tabular-nums;
+  /* Cash-out beats playing on. Deliberately small: the play letter is what you
+     read, the euro mark is a glance-check against the buyout button. */
+  .lc td { position: relative; }
+  .lc td.co::after {
+    content: '€';
+    position: absolute; top: -1px; right: 2px;
+    font-size: 0.64rem; font-weight: 800; line-height: 1;
+    color: #ffe9a8; text-shadow: 0 0 3px rgba(0,0,0,0.9);
   }
-  .lc td.lccall { background: #16161d; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.5px; color: var(--muted); }
-  .lc td.lccall.take { background: linear-gradient(180deg, #d9b64a, #9b7d24); color: #17150c; }
+  .co-key { color: #ffe9a8; }
   .lc-note { font-size: 0.69rem; color: var(--muted); margin-top: 8px; max-width: 560px; line-height: 1.65; }
   .toggle-btn {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
@@ -354,43 +351,6 @@
   }
 
   /* ---- Hand win rate ---- */
-  .wr-pick { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
-  .wr-row { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
-  .wr-rl {
-    font-size: 0.55rem; color: var(--muted); text-transform: uppercase;
-    letter-spacing: 1.2px; font-weight: 700; flex: 0 0 32px;
-  }
-  .wr-num {
-    background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    border-radius: 5px; padding: 4px 0; width: 29px; font-size: 0.71rem; font-weight: 700;
-    cursor: pointer; font-variant-numeric: tabular-nums; font-family: inherit;
-  }
-  .wr-num:hover { border-color: var(--gold-dim); color: var(--gold); }
-  .wr-num.on {
-    background: linear-gradient(180deg, #d9b64a, #9b7d24);
-    border-color: var(--gold); color: #17150c;
-  }
-  .co-hand { margin: 12px 0 4px; }
-  .co-h1 { font-size: 0.95rem; font-weight: 700; }
-  .co-h1 b { color: var(--gold); }
-  .co-h2 { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
-  .co-h2 b { color: var(--gold); font-variant-numeric: tabular-nums; }
-
-  .co-row {
-    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
-    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
-    font-size: 0.74rem; color: var(--muted);
-  }
-  .co-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; color: var(--gold); }
-  .co-row input {
-    background: var(--panel); color: var(--text); border: 1px solid var(--line2);
-    border-radius: 7px; padding: 5px 8px; font-size: 0.9rem; font-weight: 700;
-    width: 82px; font-variant-numeric: tabular-nums; margin-left: 4px;
-  }
-  .co-row input:focus { outline: none; border-color: var(--gold-dim); }
-  .co-v { font-size: 0.8rem; font-weight: 700; }
-  .co-v.go { color: var(--gold); }
-  .co-v.no { color: var(--red-soft); }
 </style>
 </head>
 <body>
@@ -519,8 +479,6 @@
 
     <div class="col-mid">
       <div class="section-label">Live Strategy Chart — recomputed after every card
-        <button class="toggle-btn" id="btnChartMode">show cash-out value</button>
-        <span class="co-margin hidden" id="coMarginWrap">they pay <input type="number" id="coMargin" value="99" min="1" max="150" step="0.1">% of fair value</span>
         <button class="toggle-btn" id="btnChartToggle">hide</button>
       </div>
       <div class="lc-wrap" id="liveChartWrap">
@@ -534,27 +492,11 @@
           <span><i style="background:linear-gradient(135deg,#7e2b30 50%,#2c4257 50%)"></i>Close call</span>
         </div>
         <table class="lc" id="liveChart"></table>
-        <div class="lc-note" id="lcNote">Solid cell = clear best play. Split-color cell (two letters) = close call — the first letter/color is slightly better. R = surrender, second letter is your play when surrender isn't possible. Yellow frame = the count changed the play vs fresh-shoe strategy (hover to see the normal play). No resplits assumed. In Free Bet: FD = FREE double, FP = FREE split.</div>
-        <div class="lc-note hidden" id="lcValNote">What each hand is worth per unit staked, played best, from the cards left in the shoe. <b>1.70</b> means a fair cash-out is 1.70&times; your bet — so on a 50 stake, 85. Take an offer only when it beats the number here. Gold = worth more than your stake, red = worth less. Hover a cell for the best play.</div>
-        <div class="lc-note hidden" id="lcCallNote">Where the buyout beats playing on. Their price was solved from four real offers: <b>99% of the hand's true value, rounded down to the nearest 5 cents</b> — matched to the cent on all four. Still open is whether that value is computed from a full shoe or the live one; if it tracks the live shoe every TAKE here disappears and the answer is simply never cash out. One offer noted at a true count past +3 or below −3 settles it. A fresh shoe shows no TAKE, which is right: at a neutral count their price and playing on are worth the same.</div>
+        <div class="lc-note" id="lcNote">Solid cell = clear best play. Split-color cell (two letters) = close call — the first letter/color is slightly better. R = surrender, second letter is your play when surrender isn't possible. Yellow frame = the count changed the play vs fresh-shoe strategy (hover to see the normal play). No resplits assumed. In Free Bet: FD = FREE double, FP = FREE split. A small <b class="co-key">€</b> in a corner means the table's cash-out offer beats playing that hand out — at a neutral count nothing is marked, so it only appears once the count has turned the hand against you.</div>
         <div class="lc-note" id="pairNote"></div>
       </div>
     </div><!-- /col-mid -->
 
-    <div class="col-right">
-      <div class="band" id="coBand">
-        <div class="band-title">Cash-out check — is their offer better than playing on?</div>
-        <div class="wr-pick" id="wrPick"></div>
-        <div class="wr-row" id="coUpRow"></div>
-        <div class="co-hand" id="coHand"></div>
-        <div class="co-row">
-          <label>Your bet <input type="number" id="coBet" min="0" step="any"></label>
-          <label>They offer <input type="number" id="coOffer" min="0" step="any" placeholder="—"></label>
-          <span class="co-v" id="coVerdict">Type what the table offers to buy your hand.</span>
-        </div>
-      </div>
-
-    </div><!-- /col-right -->
 
     </div><!-- /game-cols -->
   </div>
@@ -688,135 +630,6 @@
     }
   }
 
-  // ================= HAND WIN RATE =================
-  // Win / push / lose for every action, from the exact cards left in the shoe.
-  // "Hit" means hit and then keep playing optimally, so the numbers describe
-  // the hand you would really play rather than a single draw.
-  let wrUp = 10, wrTotal = 16, wrSoft = false;
-  let wrBestEV = 0; // value of the selected hand, for the cash-out check
-
-  function solveHand(up, total, soft) {
-    // Same card removal as the chart: the upcard, plus the ace and its partner
-    // when the hand is soft (a soft 18 is an ace and a 7, nothing else).
-    const seen = soft ? [up, 11, total - 11] : [up];
-    const rem2 = shoeWithout(remaining, seen);
-    const N2 = RANKS.reduce((s, r) => s + rem2[r], 0);
-    const p = {};
-    RANKS.forEach(r => p[r] = N2 > 0 ? Math.max(rem2[r], 0) / N2 : 0);
-    const dist = dealerDistribution(up, p);
-
-    const stand = t => {
-      if (t > 21) return { w: 0, push: 0, l: 1, ev: -1 };
-      const o = standWL(t, dist);
-      return { w: o.w, push: Math.max(0, 1 - o.w - o.l), l: o.l, ev: o.w - o.l };
-    };
-    const memo = new Map();
-    function best(t, s) {
-      if (t > 21) return { w: 0, push: 0, l: 1, ev: -1 };
-      const key = t + (s ? 's' : 'h');
-      if (memo.has(key)) return memo.get(key);
-      const a = stand(t), b = hit(t, s);
-      const r = b.ev > a.ev ? b : a;
-      memo.set(key, r);
-      return r;
-    }
-    function hit(t, s) {
-      let w = 0, push = 0, l = 0;
-      for (const r of RANKS) {
-        if (!p[r]) continue;
-        const [nt, ns] = addCard(t, s, r);
-        const o = nt > 21 ? { w: 0, push: 0, l: 1 } : best(nt, ns);
-        w += p[r] * o.w; push += p[r] * o.push; l += p[r] * o.l;
-      }
-      return { w, push, l, ev: w - l };
-    }
-    function dbl(t, s, free) {
-      let w = 0, push = 0, l = 0;
-      for (const r of RANKS) {
-        if (!p[r]) continue;
-        const [nt] = addCard(t, s, r);
-        const o = stand(nt);
-        w += p[r] * o.w; push += p[r] * o.push; l += p[r] * o.l;
-      }
-      // On a free double the casino covers the extra unit: win two, lose one.
-      return { w, push, l, ev: free ? 2 * w - l : 2 * (w - l) };
-    }
-
-    const opts = [
-      { a: 'S', name: 'Stand', o: stand(total) },
-      { a: 'H', name: 'Hit', o: hit(total, soft) },
-      { a: 'D', name: 'Double', o: dbl(total, soft, false) },
-    ];
-    if (game === 'freebet' && !soft && total >= 9 && total <= 11) {
-      opts.push({ a: 'FD', name: 'Free double', o: dbl(total, soft, true) });
-    }
-    if (PROVIDERS[provider].surrender) {
-      opts.push({ a: 'R', name: 'Surrender', o: { w: 0, push: 0, l: 0, ev: -0.5, surr: true } });
-    }
-    return { opts, best: opts.reduce((x, y) => y.o.ev > x.o.ev ? y : x) };
-  }
-
-  // Totals are picked, not typed — hard 4-21 and soft 12-20 (A,A through A,9).
-  function renderPicker() {
-    const btn = (t, s) =>
-      `<button class="wr-num${wrTotal === t && wrSoft === s ? ' on' : ''}" data-t="${t}" data-s="${s ? 1 : 0}">${t}</button>`;
-    const range = (lo, hi, s) => {
-      let out = '';
-      for (let t = lo; t <= hi; t++) out += btn(t, s);
-      return out;
-    };
-    $('wrPick').innerHTML =
-      `<div class="wr-row"><span class="wr-rl">Hard</span>${range(4, 21, false)}</div>`
-      + `<div class="wr-row"><span class="wr-rl">Soft</span>${range(12, 20, true)}</div>`;
-    $('coUpRow').innerHTML = '<span class="wr-rl">Dealer</span>'
-      + RANKS.map(up => `<button class="wr-num${wrUp === up ? ' on' : ''}" data-up="${up}">${rankLabel(up)}</button>`).join('');
-  }
-
-  function renderWinRate() {
-    const el = $('coHand');
-    if (!el) return;
-    renderPicker();
-    const NAME = { S: 'STAND', H: 'HIT', D: 'DOUBLE', FD: 'FREE DOUBLE', R: 'SURRENDER' };
-    const s = solveHand(wrUp, wrTotal, wrSoft);
-    const b = s.best.o;
-    wrBestEV = b.ev;
-    const pc = v => (100 * v).toFixed(1) + '%';
-    el.innerHTML =
-      `<div class="co-h1">${wrSoft ? 'Soft' : 'Hard'} ${wrTotal} vs dealer <b>${rankLabel(wrUp)}</b>`
-      + ` — best play <b>${NAME[s.best.a]}</b></div>`
-      + `<div class="co-h2">Worth <b>${(1 + b.ev).toFixed(2)}×</b> your stake`
-      + (b.surr ? '' : ` · win ${pc(b.w)} · push ${pc(b.push)} · lose ${pc(b.l)}`)
-      + '</div>';
-    renderCashout();
-  }
-
-
-
-  // A cash-out is only worth taking when they offer more than the hand is
-  // actually worth. Their price is set off a neutral shoe, so the count is
-  // exactly what tells you when that price is wrong.
-  function renderCashout() {
-    const v = $('coVerdict');
-    if (!v) return;
-    const bet = Number($('coBet').value);
-    const offer = Number($('coOffer').value);
-    const pc = x => (x >= 0 ? '+' : '') + (100 * x).toFixed(1) + '%';
-    if (!(bet > 0) || !($('coOffer').value !== '' && offer >= 0)) {
-      v.className = 'co-v';
-      v.textContent = 'Type what the table offers to buy your hand.';
-      return;
-    }
-    const fair = bet * (1 + wrBestEV);
-    const theirs = offer / bet;             // same units as the value line above
-    const mine = 1 + wrBestEV;
-    if (offer > fair) {
-      v.className = 'co-v go';
-      v.textContent = `TAKE IT — they pay ${theirs.toFixed(2)}× for a hand worth ${mine.toFixed(2)}× (fair value ${fair.toFixed(2)})`;
-    } else {
-      v.className = 'co-v no';
-      v.textContent = `PLAY ON — hand is worth ${mine.toFixed(2)}× (${fair.toFixed(2)}), they only pay ${theirs.toFixed(2)}×`;
-    }
-  }
 
   // ================= DEALER BUST =================
   // Uses the same dealerDistribution() the strategy chart runs on, so these
@@ -1156,7 +969,9 @@
   }
 
   let baselineChart = null;
-  let chartMode = 'plays'; // 'plays' | 'value'
+  // Solved from four real offers: the table pays 99% of the hand's true
+  // value, rounded down to the nearest 5 cents.
+  const CASHOUT_PAYS = 0.99;
   const LC_CLS = { H: 'lcH', S: 'lcS', D: 'lcDH', P: 'lcP', FD: 'lcFD', FP: 'lcFP', R: 'lcR' };
   const ACT_COLOR = {
     H: '#7e2b30', S: '#2c4257', D: '#8a6a1e', P: '#2c5c46',
@@ -1179,22 +994,14 @@
         const style = parts.length === 2 && ACT_COLOR[parts[0]] && ACT_COLOR[parts[1]]
           ? ` style="background:linear-gradient(135deg,${ACT_COLOR[parts[0]]} 50%,${ACT_COLOR[parts[1]]} 50%)"`
           : '';
-        if (chartMode === 'call') {
-          // ASSUMES their price ignores the shoe; yours is the shoe as it
-          // actually stands. Unverified — see lcCallNote. Take only where theirs is bigger.
-          const theirs = (Number($('coMargin').value) || 100) / 100 * (1 + base.ev);
-          const mine = 1 + cur.ev;
-          const take = theirs > mine;
-          html += `<td class="lccall${take ? ' take' : ''}" title="they pay ~${theirs.toFixed(2)}× — hand is worth ${mine.toFixed(2)}×">${take ? 'TAKE' : '—'}</td>`;
-        } else if (chartMode === 'value') {
-          // What the hand is worth per unit staked, so a cash-out offer divided
-          // by your bet can be compared straight against it.
-          const mult = 1 + cur.ev;
-          const cls = mult >= 1.02 ? 'v-up' : mult <= 0.98 ? 'v-dn' : 'v-flat';
-          html += `<td class="lcval ${cls}" title="${row.key} v ${rankLabel(up)} — best play ${cur.label}">${mult.toFixed(2)}</td>`;
-        } else {
-          html += `<td class="${LC_CLS[cur.primary]}${dev ? ' dev' : ''}"${style}${dev ? ` title="basic: ${base.label}"` : ''}>${cur.label}</td>`;
-        }
+        // Their price comes off a neutral shoe; ours is the shoe as it stands.
+        const theirs = CASHOUT_PAYS * (1 + base.ev);
+        const co = theirs > 1 + cur.ev;
+        const bits = [`${row.key} v ${rankLabel(up)}`];
+        if (dev) bits.push(`basic: ${base.label}`);
+        if (co) bits.push(`cash out — they pay ~${theirs.toFixed(2)}×, hand is worth ${(1 + cur.ev).toFixed(2)}×`);
+        html += `<td class="${LC_CLS[cur.primary]}${dev ? ' dev' : ''}${co ? ' co' : ''}"${style}`
+          + ` title="${bits.join(' — ')}">${cur.label}</td>`;
       }
       html += '</tr>';
     }
@@ -1290,7 +1097,6 @@
     }
 
     renderSideBets();
-    renderWinRate();
     renderDealer();
     renderLiveChart();
   }
@@ -1312,7 +1118,6 @@
     s17 = $('dashS17').value === 's17';
     peek10 = $('dashPeek').value === 'peek';
     baseBet = Math.max(1, Number($('dashBaseBet').value) || 50);
-    $('coBet').value = baseBet;
     screen = 'game';
     $('screenDash').classList.add('hidden');
     $('screenGame').classList.remove('hidden');
@@ -1339,17 +1144,6 @@
 
   $('btnUndo').addEventListener('click', undo);
   $('btnReset').addEventListener('click', resetShoe);
-  $('coMargin').addEventListener('input', renderLiveChart);
-  $('btnChartMode').addEventListener('click', () => {
-    chartMode = chartMode === 'plays' ? 'value' : chartMode === 'value' ? 'call' : 'plays';
-    $('btnChartMode').textContent = chartMode === 'plays' ? 'show cash-out value'
-      : chartMode === 'value' ? 'show cash-out call' : 'show plays';
-    $('lcNote').classList.toggle('hidden', chartMode !== 'plays');
-    $('lcValNote').classList.toggle('hidden', chartMode !== 'value');
-    $('lcCallNote').classList.toggle('hidden', chartMode !== 'call');
-    $('coMarginWrap').classList.toggle('hidden', chartMode !== 'call');
-    renderLiveChart();
-  });
   $('btnChartToggle').addEventListener('click', () => {
     const wrap = $('liveChartWrap');
     wrap.classList.toggle('hidden');
@@ -1357,21 +1151,6 @@
     if (!wrap.classList.contains('hidden')) renderLiveChart();
   });
 
-  $('coUpRow').addEventListener('click', e => {
-    const c = e.target.closest('[data-up]');
-    if (!c) return;
-    wrUp = Number(c.dataset.up);
-    renderWinRate();
-  });
-  $('coBet').addEventListener('input', renderCashout);
-  $('coOffer').addEventListener('input', renderCashout);
-  $('wrPick').addEventListener('click', e => {
-    const b = e.target.closest('.wr-num');
-    if (!b) return;
-    wrTotal = Number(b.dataset.t);
-    wrSoft = b.dataset.s === '1';
-    renderWinRate();
-  });
 
   document.addEventListener('keydown', e => {
     if (screen !== 'game') return;
