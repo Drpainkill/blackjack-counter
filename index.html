@@ -198,37 +198,16 @@
   .dl-bv { height: 8px; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-radius: 3px; min-width: 2px; }
   .dl-bn { color: var(--muted); font-variant-numeric: tabular-nums; }
 
-  .rank-buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 100%; max-width: 520px; }
-  .rank-btn {
-    border: 1px solid rgba(255,255,255,0.07); border-radius: 11px; padding: 15px 4px;
-    font-size: 1.2rem; font-weight: 800; color: #f5f1ea; cursor: pointer;
-    transition: transform 0.06s ease, filter 0.1s ease; touch-action: manipulation; position: relative;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09);
+  .keypad-legend {
+    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+    max-width: 520px; font-size: 0.72rem; color: var(--muted);
   }
-  .rank-btn:active { transform: scale(0.93); filter: brightness(1.3); }
-  .rank-btn .left { position: absolute; top: 4px; right: 7px; font-size: 0.6rem; font-weight: 600; opacity: 0.75; }
-  /* low cards favour you → gold · mid neutral → charcoal · high hurt you → crimson */
-  .rank-btn.grp-low  { background: linear-gradient(170deg, #a5822b, #6d5416); }
-  .rank-btn.grp-mid  { background: linear-gradient(170deg, #3c3c47, #26262e); }
-  .rank-btn.grp-high { background: linear-gradient(170deg, #a3181f, #6b0d12); }
-  .rank-btn.depleted { filter: grayscale(0.85) brightness(0.45); }
+  .keypad-legend .sep { width: 1px; height: 14px; background: var(--line2); }
 
   .game-cols { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; width: 100%; }
   .col-left { flex: 0 1 520px; min-width: 300px; }
   .col-mid { flex: 1 1 560px; min-width: 340px; }   /* strategy chart */
   .col-right { flex: 1 1 660px; min-width: 340px; } /* hand win rate */
-  .group-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 520px; }
-  .gbtn {
-    border: 1px solid rgba(255,255,255,0.07); border-radius: 11px; padding: 13px 4px;
-    font-size: 0.98rem; font-weight: 800; color: #f5f1ea; cursor: pointer;
-    transition: transform 0.06s ease, filter 0.1s ease; touch-action: manipulation;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09);
-  }
-  .gbtn:active { transform: scale(0.94); filter: brightness(1.3); }
-  .gbtn span { display: block; font-size: 0.6rem; font-weight: 500; opacity: 0.75; margin-top: 3px; }
-  .g-low  { background: linear-gradient(170deg, #a5822b, #6d5416); }
-  .g-mid  { background: linear-gradient(170deg, #3c3c47, #26262e); }
-  .g-high { background: linear-gradient(170deg, #a3181f, #6b0d12); }
   .lc-wrap { max-width: 100%; overflow-x: auto; }
   /* Sized by its cells, NOT stretched to the container — on a wide/fullscreen
      window the table keeps its natural width instead of ballooning. It only
@@ -507,14 +486,16 @@
     <div class="dealer-grid" id="dealerGrid"></div>
     <div class="dealer-detail" id="dealerDetail"></div>
 
-    <div class="section-label">Card Dealt — tap or type the rank</div>
-    <div class="rank-buttons" id="rankButtons"></div>
-
-    <div class="section-label">Or Quick Mode — just the group</div>
-    <div class="group-buttons">
-      <button class="gbtn g-low" id="btnGLow">LOW +1<span>2 3 4 5 6</span></button>
-      <button class="gbtn g-mid" id="btnGMid">MID 0<span>7 8 9</span></button>
-      <button class="gbtn g-high" id="btnGHigh">HIGH −1<span>10 J Q K A</span></button>
+    <div class="section-label">Card Dealt — type the rank</div>
+    <div class="keypad-legend">
+      <span><kbd>2</kbd>–<kbd>9</kbd> that card</span>
+      <span><kbd>0</kbd> <kbd>T</kbd> <kbd>J</kbd> <kbd>Q</kbd> <kbd>K</kbd> any ten</span>
+      <span><kbd>A</kbd> ace</span>
+      <span class="sep"></span>
+      <span><kbd>L</kbd> low <kbd>M</kbd> mid <kbd>H</kbd> high</span>
+      <span class="sep"></span>
+      <span><kbd>Z</kbd> undo</span>
+      <span><kbd>R</kbd> reset</span>
     </div>
 
     <div class="section-label">Cards Remaining In Shoe</div>
@@ -530,7 +511,6 @@
     <div class="history-chips" id="history"></div>
 
     <div class="hint">
-      Keyboard: <kbd>2</kbd>–<kbd>9</kbd> that card · <kbd>0</kbd> <kbd>T</kbd> <kbd>J</kbd> <kbd>Q</kbd> <kbd>K</kbd> any ten-value · <kbd>A</kbd> ace · quick mode <kbd>L</kbd> <kbd>M</kbd> <kbd>H</kbd> · <kbd>Z</kbd> undo · <kbd>R</kbd> reset<br>
       Suits aren't tracked — suit-based payouts (perfect/colored pairs, flushes, suited 21) assume suits are evenly spread among remaining cards.<br>
       Dealer rules: blackjack revealed after insurance vs an Ace · no check under a 10 (hidden blackjack is factored in).
     </div>
@@ -1222,15 +1202,6 @@
   }
 
   // ================= RENDER =================
-  const rankButtonsEl = $('rankButtons');
-  RANKS.forEach(r => {
-    const b = document.createElement('button');
-    b.className = 'rank-btn grp-' + grp(r);
-    b.id = 'rank-' + r;
-    b.innerHTML = rankLabel(r) + '<span class="left" id="left-' + r + '"></span>';
-    b.addEventListener('click', () => recordCard(r));
-    rankButtonsEl.appendChild(b);
-  });
 
   const fmtN = n => Math.abs(n - Math.round(n)) < 1e-6 ? String(Math.round(n)) : n.toFixed(1);
 
@@ -1285,10 +1256,6 @@
         + `<div class="n">${fmtN(remaining[r])}</div>`
         + `<div class="p ${dcls}">${pct.toFixed(1)}%</div></div>`;
     }).join('');
-    RANKS.forEach(r => {
-      $('left-' + r).textContent = fmtN(remaining[r]);
-      $('rank-' + r).classList.toggle('depleted', remaining[r] < 1 - 1e-9);
-    });
 
     // Grouped draw chances. "5 or lower" is the one that decides whether a stiff
     // hand can be hit safely; the Hi-Lo groups say which way the shoe is running.
@@ -1372,9 +1339,6 @@
 
   $('btnUndo').addEventListener('click', undo);
   $('btnReset').addEventListener('click', resetShoe);
-  $('btnGLow').addEventListener('click', () => recordGroup('low'));
-  $('btnGMid').addEventListener('click', () => recordGroup('mid'));
-  $('btnGHigh').addEventListener('click', () => recordGroup('high'));
   $('coMargin').addEventListener('input', renderLiveChart);
   $('btnChartMode').addEventListener('click', () => {
     chartMode = chartMode === 'plays' ? 'value' : chartMode === 'value' ? 'call' : 'plays';
@@ -1412,7 +1376,10 @@
   document.addEventListener('keydown', e => {
     if (screen !== 'game') return;
     const tag = e.target.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT') return;
+    if (tag === 'INPUT' || tag === 'SELECT') {
+      if (e.key === 'Escape') e.target.blur();   // keys are the only way in, so make it easy to get back
+      return;
+    }
     const k = e.key.toLowerCase();
     if (k >= '2' && k <= '9') recordCard(Number(k));
     else if (k === '0' || k === 't' || k === 'j' || k === 'q' || k === 'k') recordCard(10);
