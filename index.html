@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blackjack Counter Pro</title>
+<style>
+  :root {
+    --bg: #08080a;
+    --panel: #131318;
+    --panel-hi: #17171e;
+    --card: #131318;   /* legacy alias */
+    --card2: #1c1c24;  /* legacy alias */
+    --line: #2a2a33;
+    --line2: #3a3a46;
+    --text: #ece8e3;
+    --muted: #8a8592;
+    --red: #b8161d;
+    --red-deep: #7d0f14;
+    --red-soft: #cf4a52;
+    --gold: #d4af37;
+    --gold-dim: #9b7d24;
+    --jade: #2f7a55;
+    /* semantic: gold = in your favour, red = against you */
+    --low: var(--gold);
+    --mid: var(--muted);
+    --high: var(--red-soft);
+    --accent: var(--gold);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1100px 560px at 18% -12%, rgba(184, 22, 29, 0.15), transparent 62%),
+      radial-gradient(900px 520px at 88% 2%, rgba(212, 175, 55, 0.055), transparent 60%),
+      linear-gradient(180deg, #0e0b0f 0%, #08080a 55%, #050506 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 16px 20px 44px 14px;
+    user-select: none;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #0c0c10; }
+  ::-webkit-scrollbar-thumb { background: #2c2c36; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3d3d4a; }
+  h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.45rem;
+    font-weight: 400;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+    text-shadow: 0 0 22px rgba(212, 175, 55, 0.3);
+    width: 100%;
+  }
+  .section-label {
+    font-size: 0.66rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 2px; margin: 18px 0 8px; font-weight: 700;
+  }
+
+  /* ---- Dashboard ---- */
+  .opt-grid { display: flex; gap: 12px; flex-wrap: wrap; max-width: 560px; }
+  .opt-card {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 20px;
+    cursor: pointer;
+    min-width: 150px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.035);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .opt-card:hover { border-color: var(--line2); }
+  .opt-card.selected {
+    border-color: rgba(212, 175, 55, 0.65);
+    box-shadow: 0 10px 26px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.25), inset 0 1px 0 rgba(212,175,55,0.16);
+  }
+  .opt-card .t { font-size: 1.02rem; font-weight: 700; letter-spacing: 0.5px; }
+  .opt-card.selected .t { color: var(--gold); }
+  .opt-card .d { font-size: 0.72rem; color: var(--muted); margin-top: 5px; line-height: 1.55; }
+  .dash-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+  .dash-row label { font-size: 0.85rem; color: var(--muted); }
+  .dash-row select, .dash-row input {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 12px; font-size: 0.9rem;
+  }
+  .dash-row select:focus, .dash-row input:focus { outline: none; border-color: var(--gold-dim); }
+  .start-btn {
+    margin-top: 26px;
+    background: linear-gradient(180deg, var(--red), var(--red-deep));
+    color: #fff8f0; border: 1px solid rgba(212,175,55,0.5); border-radius: 12px;
+    padding: 16px 44px; font-size: 1rem; font-weight: 800; cursor: pointer;
+    letter-spacing: 3px; text-transform: uppercase;
+    box-shadow: 0 12px 30px rgba(184,22,29,0.3), inset 0 1px 0 rgba(255,255,255,0.14);
+  }
+  .start-btn:active { filter: brightness(1.2); transform: translateY(1px); }
+
+  /* ---- Game ---- */
+  .game-header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .game-title { font-size: 0.76rem; color: var(--gold); font-weight: 700; letter-spacing: 1.5px; }
+  .back-btn {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 12px; font-size: 0.76rem; cursor: pointer;
+  }
+  .back-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .topline { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+  .running-count {
+    font-size: 4.4rem; font-weight: 300; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -1px;
+    color: var(--text); text-shadow: 0 0 40px rgba(255,255,255,0.1);
+  }
+  .running-count.positive { color: var(--gold); text-shadow: 0 0 42px rgba(212,175,55,0.45); }
+  .running-count.negative { color: var(--red-soft); text-shadow: 0 0 42px rgba(184,22,29,0.4); }
+  .running-label { color: var(--muted); font-size: 0.64rem; text-transform: uppercase; letter-spacing: 3px; margin-top: 6px; }
+  .stats { display: flex; gap: 8px; margin: 16px 0 10px; flex-wrap: wrap; }
+  .stat {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px; min-width: 78px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .stat .value { font-size: 1.12rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .label { font-size: 0.56rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; margin-top: 3px; }
+  .advice {
+    font-size: 0.86rem; font-weight: 700; padding: 9px 20px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line);
+    margin-bottom: 6px; letter-spacing: 0.6px;
+  }
+  .advice.hot {
+    color: var(--gold); border-color: rgba(212,175,55,0.55);
+    background: linear-gradient(180deg, rgba(212,175,55,0.13), rgba(212,175,55,0.04));
+    box-shadow: 0 0 26px rgba(212,175,55,0.16);
+  }
+  .advice.cold {
+    color: var(--red-soft); border-color: rgba(184,22,29,0.45);
+    background: linear-gradient(180deg, rgba(184,22,29,0.12), rgba(184,22,29,0.03));
+  }
+  .advice.neutral { color: var(--muted); }
+
+  .sidebets {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 13px 15px;
+    width: 100%;
+    max-width: 520px;
+    margin-top: 10px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .sb-alert { font-size: 0.88rem; font-weight: 700; margin-bottom: 9px; letter-spacing: 0.4px; }
+  .sb-alert.go { color: var(--gold); text-shadow: 0 0 20px rgba(212,175,55,0.35); }
+  .sb-alert.no { color: var(--muted); font-weight: 500; }
+  .sb-table { width: 100%; border-collapse: collapse; }
+  .sb-table th { text-align: left; font-size: 0.58rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; padding: 3px 8px 6px 0; font-weight: 700; border-bottom: 1px solid var(--line); }
+  .sb-table th:nth-child(n+2), .sb-table td:nth-child(n+2) { text-align: right; }
+  .sb-table td { padding: 5px 8px 5px 0; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+  .sb-table tr.pos td { color: var(--gold); font-weight: 800; }
+  .sb-table td.verdict { font-weight: 800; }
+
+  /* --- dealer upcard / bust odds --- */
+  .dealer-grid {
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px;
+    width: 100%; max-width: 520px;
+  }
+  .dl-btn {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 1px; cursor: pointer; color: var(--text);
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    font-family: inherit; min-width: 0;
+  }
+  .dl-btn:hover { border-color: var(--line2); }
+  .dl-btn.sel {
+    border-color: rgba(212,175,55,0.7);
+    background: linear-gradient(180deg, rgba(212,175,55,0.16), rgba(212,175,55,0.05));
+  }
+  .dl-r { font-size: 0.8rem; font-weight: 800; }
+  .dl-btn.sel .dl-r { color: var(--gold); }
+  .dl-p { font-size: 0.58rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* The upcards he busts on most — your stand spots. */
+  .dl-btn.hot .dl-p { color: var(--gold); }
+  .dl-btn.warm .dl-p { color: var(--gold-dim); }
+
+  .dealer-detail { width: 100%; max-width: 520px; margin-top: 6px; }
+  .dl-hint { font-size: 0.68rem; color: var(--muted); }
+  .dl-head { font-size: 0.78rem; margin-bottom: 5px; }
+  .dl-bust { color: var(--gold); font-weight: 800; }
+  .dl-bars { display: flex; flex-direction: column; gap: 2px; }
+  .dl-bar { display: flex; align-items: center; gap: 6px; font-size: 0.66rem; }
+  .dl-bt { width: 22px; color: var(--muted); font-weight: 700; }
+  .dl-bv { height: 8px; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-radius: 3px; min-width: 2px; }
+  .dl-bn { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .rank-buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 100%; max-width: 520px; }
+  .rank-btn {
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 11px; padding: 15px 4px;
+    font-size: 1.2rem; font-weight: 800; color: #f5f1ea; cursor: pointer;
+    transition: transform 0.06s ease, filter 0.1s ease; touch-action: manipulation; position: relative;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09);
+  }
+  .rank-btn:active { transform: scale(0.93); filter: brightness(1.3); }
+  .rank-btn .left { position: absolute; top: 4px; right: 7px; font-size: 0.6rem; font-weight: 600; opacity: 0.75; }
+  /* low cards favour you → gold · mid neutral → charcoal · high hurt you → crimson */
+  .rank-btn.grp-low  { background: linear-gradient(170deg, #a5822b, #6d5416); }
+  .rank-btn.grp-mid  { background: linear-gradient(170deg, #3c3c47, #26262e); }
+  .rank-btn.grp-high { background: linear-gradient(170deg, #a3181f, #6b0d12); }
+  .rank-btn.depleted { filter: grayscale(0.85) brightness(0.45); }
+
+  .game-cols { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; width: 100%; }
+  .col-left { flex: 0 1 520px; min-width: 300px; }
+  .col-mid { flex: 1 1 560px; min-width: 340px; }   /* strategy chart */
+  .col-right { flex: 1 1 660px; min-width: 340px; } /* hand win rate */
+  .group-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 520px; }
+  .gbtn {
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 11px; padding: 13px 4px;
+    font-size: 0.98rem; font-weight: 800; color: #f5f1ea; cursor: pointer;
+    transition: transform 0.06s ease, filter 0.1s ease; touch-action: manipulation;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.09);
+  }
+  .gbtn:active { transform: scale(0.94); filter: brightness(1.3); }
+  .gbtn span { display: block; font-size: 0.6rem; font-weight: 500; opacity: 0.75; margin-top: 3px; }
+  .g-low  { background: linear-gradient(170deg, #a5822b, #6d5416); }
+  .g-mid  { background: linear-gradient(170deg, #3c3c47, #26262e); }
+  .g-high { background: linear-gradient(170deg, #a3181f, #6b0d12); }
+  .lc-wrap { max-width: 100%; overflow-x: auto; }
+  /* Sized by its cells, NOT stretched to the container — on a wide/fullscreen
+     window the table keeps its natural width instead of ballooning. It only
+     goes fluid below, where shrinking is what keeps the dealer-A column on
+     screen. */
+  .lc { border-collapse: collapse; table-layout: fixed; width: auto; }
+  .lc th, .lc td {
+    border: 1px solid var(--bg);
+    text-align: center;
+    font-weight: 800;
+    font-size: 0.78rem;
+    min-width: 44px;
+    height: 30px;
+    padding: 1px;
+    color: #fff;
+  }
+  /* The dealer's Ace is the 11th column and the one basic strategy hinges on
+     most, so shrink the cells to keep every column on screen rather than
+     letting it scroll out of view on a narrow window. */
+  @media (max-width: 900px) {
+    .lc { width: 100%; }
+    .lc th, .lc td { min-width: 0; font-size: 0.68rem; height: 26px; }
+    .lc td.hand, .lc tr > :first-child { font-size: 0.64rem; }
+  }
+  @media (max-width: 560px) {
+    .lc th, .lc td { font-size: 0.58rem; height: 23px; letter-spacing: -0.02em; }
+  }
+  /* Keep the hand label anchored if the table still has to scroll, so a row
+     can't be read against the wrong hand. */
+  .lc tr > :first-child { position: sticky; left: 0; z-index: 1; }
+  .lc th { background: #1a1a22; color: var(--gold); letter-spacing: 1px; }
+  .lc td.hand { background: #1a1a22; color: var(--text); }
+  .lc td.lcH  { background: #7e2b30; }
+  .lc td.lcS  { background: #2c4257; }
+  .lc td.lcP, .lc td.lcFP { background: #2c5c46; }
+  .lc td.lcDH { background: #8a6a1e; }
+  .lc td.lcDS { background: #8a6a1e; }
+  .lc td.lcFD { background: #235952; }
+  .lc td.lcR  { background: #4a3a63; }
+  .lc-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .lc-legend span {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.7rem; color: var(--muted); letter-spacing: 0.3px;
+  }
+  .lc-legend i {
+    display: inline-block; width: 22px; height: 14px; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .lc td.dev { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .lc td.lcval { background: #16161d; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .lc td.lcval.v-up { color: var(--gold); }
+  .lc td.lcval.v-dn { color: var(--red-soft); }
+  .lc td.lcval.v-flat { color: var(--muted); }
+  .co-margin { font-size: 0.62rem; color: var(--muted); margin-left: 8px; text-transform: none; letter-spacing: 0; }
+  .co-margin input {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line2);
+    border-radius: 5px; padding: 2px 5px; width: 56px; font-size: 0.7rem; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .lc td.lccall { background: #16161d; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.5px; color: var(--muted); }
+  .lc td.lccall.take { background: linear-gradient(180deg, #d9b64a, #9b7d24); color: #17150c; }
+  .lc-note { font-size: 0.69rem; color: var(--muted); margin-top: 8px; max-width: 560px; line-height: 1.65; }
+  .toggle-btn {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 2px 10px; font-size: 0.66rem; cursor: pointer; margin-left: 8px;
+  }
+  .toggle-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .remaining-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; width: 100%; max-width: 520px; }
+  .rem-cell {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px 2px; text-align: center;
+  }
+  .rem-cell .r { font-size: 0.64rem; color: var(--muted); font-weight: 700; }
+  .rem-cell .n { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .rem-cell.rich .n { color: var(--gold); }
+  .rem-cell.poor .n { color: var(--red-soft); }
+  /* Chance the next card is this rank. Muted by default so the raw count stays
+     the thing you read first; it only takes colour once it has drifted from a
+     fresh shoe. */
+  .rem-cell .p {
+    font-size: 0.62rem; font-weight: 700; color: var(--muted);
+    font-variant-numeric: tabular-nums; margin-top: 1px;
+  }
+  .rem-cell .p.up { color: var(--gold); }
+  .rem-cell .p.down { color: var(--red-soft); }
+
+  /* Three equal columns rather than flex-wrap, so the tiles always sit on one
+     row instead of spilling onto a second in a narrow column. */
+  .rem-summary {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    width: 100%; max-width: 520px; margin-top: 6px;
+  }
+  .rs-cell {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 7px;
+    display: flex; align-items: baseline; justify-content: center;
+    gap: 5px; min-width: 0; overflow: hidden;
+  }
+  .rs-lbl { font-size: 0.56rem; color: var(--muted); font-weight: 700; white-space: nowrap; letter-spacing: 0.6px; }
+  .rs-pct { font-size: 0.85rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .rs-pct.up { color: var(--gold); }
+  .rs-pct.down { color: var(--red-soft); }
+
+  .controls { display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
+  .controls button {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 16px; font-size: 0.84rem; cursor: pointer;
+    letter-spacing: 0.4px;
+  }
+  .controls button:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .controls button:active { filter: brightness(1.3); }
+
+  .history-chips { display: flex; flex-wrap: wrap; gap: 5px; min-height: 28px; max-width: 520px; }
+  .chip {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 30px; padding: 4px 7px; border-radius: 6px;
+    font-size: 0.8rem; font-weight: 800; color: #f5f1ea;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .chip.low  { background: #8a6a1e; }
+  .chip.mid  { background: #33333d; }
+  .chip.high { background: #8f1219; }
+  .chip.latest { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .history-empty { color: var(--muted); font-size: 0.78rem; }
+
+  kbd { background: var(--panel); color: var(--text); border-radius: 4px; padding: 1px 6px; font-size: 0.66rem; border: 1px solid var(--line2); }
+  .hint { color: var(--muted); font-size: 0.68rem; margin-top: 14px; text-align: left; max-width: 560px; line-height: 1.8; }
+  .hidden { display: none !important; }
+  /* ---- Full-width bands (win rate + side bets) ---- */
+  .band {
+    width: 100%;
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line); border-radius: 14px;
+    padding: 13px 16px; margin-bottom: 14px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .band-title {
+    font-size: 0.66rem; color: var(--gold); text-transform: uppercase;
+    letter-spacing: 2px; font-weight: 700; margin-bottom: 11px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  }
+
+  /* ---- Hand win rate ---- */
+  .wr-pick { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+  .wr-row { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+  .wr-rl {
+    font-size: 0.55rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 1.2px; font-weight: 700; flex: 0 0 32px;
+  }
+  .wr-num {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 5px; padding: 4px 0; width: 29px; font-size: 0.71rem; font-weight: 700;
+    cursor: pointer; font-variant-numeric: tabular-nums; font-family: inherit;
+  }
+  .wr-num:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .wr-num.on {
+    background: linear-gradient(180deg, #d9b64a, #9b7d24);
+    border-color: var(--gold); color: #17150c;
+  }
+  .wr-scroll { overflow-x: auto; }
+  .wr-strip { border-collapse: collapse; width: 100%; }
+  .wr-strip th, .wr-strip td {
+    border: 1px solid var(--bg); text-align: center; padding: 6px 4px;
+    font-size: 0.82rem; font-variant-numeric: tabular-nums; min-width: 48px;
+  }
+  .wr-strip th { background: #1a1a22; color: var(--gold); font-size: 0.92rem; font-weight: 800; cursor: pointer; }
+  .wr-strip .wr-lbl {
+    background: #1a1a22; color: var(--muted); text-align: left; font-size: 0.6rem;
+    text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;
+    min-width: 84px; position: sticky; left: 0; z-index: 1; cursor: default;
+  }
+  .wr-strip td { background: var(--panel); cursor: pointer; }
+  .wr-strip td.up { color: var(--gold); font-weight: 700; }
+  .wr-strip td.down { color: var(--red-soft); }
+  .wr-strip .wr-sel { box-shadow: inset 0 0 0 2px var(--gold); }
+  .wr-strip td.wr-act { font-weight: 800; letter-spacing: 0.4px; font-size: 0.7rem; color: #f4f0ea; }
+
+  .wr-detail { margin-top: 14px; display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .wr-dh { font-size: 0.95rem; font-weight: 700; margin-bottom: 9px; }
+  .wr-dh b { color: var(--gold); }
+  .wr-bar { display: flex; height: 17px; border-radius: 5px; overflow: hidden; width: 340px; max-width: 100%; border: 1px solid var(--line); }
+  .wr-bar i { display: block; height: 100%; }
+  .wr-bar i.w { background: linear-gradient(180deg, #d4af37, #9b7d24); }
+  .wr-bar i.p { background: #3c3c47; }
+  .wr-bar i.l { background: linear-gradient(180deg, #a3181f, #6b0d12); }
+  .wr-key { display: flex; gap: 16px; margin-top: 8px; font-size: 0.72rem; color: var(--muted); }
+  .wr-key b { font-variant-numeric: tabular-nums; color: var(--text); }
+  .wr-dt { border-collapse: collapse; }
+  .wr-dt th {
+    font-size: 0.55rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px;
+    text-align: right; padding: 3px 14px 6px 0; font-weight: 700; border-bottom: 1px solid var(--line);
+  }
+  .wr-dt th:first-child { text-align: left; }
+  .wr-dt td { font-size: 0.85rem; padding: 5px 14px 5px 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .wr-dt td:first-child { text-align: left; font-weight: 600; }
+  .wr-dt tr.best td { color: var(--gold); font-weight: 800; }
+  .co-row {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+    font-size: 0.74rem; color: var(--muted);
+  }
+  .co-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; color: var(--gold); }
+  .co-row input {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line2);
+    border-radius: 7px; padding: 5px 8px; font-size: 0.9rem; font-weight: 700;
+    width: 82px; font-variant-numeric: tabular-nums; margin-left: 4px;
+  }
+  .co-row input:focus { outline: none; border-color: var(--gold-dim); }
+  .co-v { font-size: 0.8rem; font-weight: 700; }
+  .co-v.go { color: var(--gold); }
+  .co-v.no { color: var(--red-soft); }
+</style>
+</head>
+<body>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div id="screenDash">
+    <h1><span style="color:#e0e0e0">♠</span> <span style="color:var(--red-soft)">♥</span> Blackjack Counter <span style="color:var(--red-soft)">♦</span> <span style="color:#e0e0e0">♣</span></h1>
+
+    <div class="section-label">1 · Provider</div>
+    <div class="opt-grid" id="providerGrid">
+      <div class="opt-card selected" data-provider="evolution">
+        <div class="t">Evolution</div>
+        <div class="d">8 decks · S17 · double any 2 cards<br>NO double after split · no surrender<br>One split per hand</div>
+      </div>
+      <div class="opt-card" data-provider="pragmatic">
+        <div class="t">Pragmatic Play</div>
+        <div class="d">8 decks · S17 · double any 2 cards<br>Double after split ✓ (not split aces)<br>One split per hand · cash-out offered</div>
+      </div>
+    </div>
+
+    <div class="section-label">2 · Game</div>
+    <div class="opt-grid" id="gameGrid">
+      <div class="opt-card selected" data-game="regular">
+        <div class="t">Regular Blackjack</div>
+        <div class="d">Classic rules · BJ pays 3:2</div>
+      </div>
+      <div class="opt-card" data-game="freebet">
+        <div class="t">Free Bet Blackjack</div>
+        <div class="d">Dealer 22 pushes · free double on<br>hard 9/10/11 · free split pairs (not 10s)</div>
+      </div>
+    </div>
+
+    <div class="section-label">3 · Table Rules</div>
+    <div class="dash-row">
+      <label>Decks:
+        <select id="dashDecks">
+          <option value="4">4</option><option value="6">6</option><option value="8" selected>8</option>
+        </select>
+      </label>
+      <label>Dealer soft 17:
+        <select id="dashS17">
+          <option value="s17" selected>Stands (S17)</option>
+          <option value="h17">Hits (H17)</option>
+        </select>
+      </label>
+      <label>Checks under a 10:
+        <select id="dashPeek">
+          <option value="peek">Yes — round ends on dealer BJ</option>
+          <option value="nopeek" selected>No — hidden BJ takes your double/split too</option>
+        </select>
+      </label>
+      <label>Base bet:
+        <input type="number" id="dashBaseBet" value="50" min="1" style="width:80px;">
+      </label>
+    </div>
+
+    <button class="start-btn" id="btnStart">Start Counting ▶</button>
+  </div>
+
+  <!-- ============ GAME ============ -->
+  <div id="screenGame" class="hidden" style="width:100%">
+    <div class="game-header">
+      <button class="back-btn" id="btnBack">◀ Dashboard</button>
+      <div class="game-title" id="gameTitle"></div>
+    </div>
+
+    <div class="game-cols">
+    <div class="col-left">
+
+    <div class="topline">
+      <div>
+        <div class="running-count" id="bigTrueCount">0.0</div>
+        <div class="running-label">True Count</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="value" id="runningStat">0</div><div class="label">Running Count</div></div>
+      <div class="stat"><div class="value" id="cardsSeen">0</div><div class="label">Cards Seen</div></div>
+      <div class="stat"><div class="value" id="decksLeft">8.0</div><div class="label">Decks Left</div></div>
+      <div class="stat"><div class="value" id="tenPct">30.8%</div><div class="label">10s Density</div></div>
+      <div class="stat"><div class="value" id="acePct">7.7%</div><div class="label">Ace Density</div></div>
+    </div>
+
+    <div class="advice neutral" id="advice">Neutral — bet minimum</div>
+
+    <div class="sidebets">
+      <div class="sb-alert no" id="sbAlert">Insurance: not worth it right now</div>
+      <table class="sb-table" id="sbTable"></table>
+    </div>
+
+    <div class="section-label">Dealer's Upcard — chance he busts</div>
+    <div class="dealer-grid" id="dealerGrid"></div>
+    <div class="dealer-detail" id="dealerDetail"></div>
+
+    <div class="section-label">Card Dealt — tap or type the rank</div>
+    <div class="rank-buttons" id="rankButtons"></div>
+
+    <div class="section-label">Or Quick Mode — just the group</div>
+    <div class="group-buttons">
+      <button class="gbtn g-low" id="btnGLow">LOW +1<span>2 3 4 5 6</span></button>
+      <button class="gbtn g-mid" id="btnGMid">MID 0<span>7 8 9</span></button>
+      <button class="gbtn g-high" id="btnGHigh">HIGH −1<span>10 J Q K A</span></button>
+    </div>
+
+    <div class="section-label">Cards Remaining In Shoe</div>
+    <div class="remaining-grid" id="remainingGrid"></div>
+    <div class="rem-summary" id="remSummary"></div>
+
+    <div class="controls">
+      <button id="btnUndo">↩ Undo</button>
+      <button id="btnReset">Reset Shoe</button>
+    </div>
+
+    <div class="section-label">Last Inputs (newest first)</div>
+    <div class="history-chips" id="history"></div>
+
+    <div class="hint">
+      Keyboard: <kbd>2</kbd>–<kbd>9</kbd> that card · <kbd>0</kbd> <kbd>T</kbd> <kbd>J</kbd> <kbd>Q</kbd> <kbd>K</kbd> any ten-value · <kbd>A</kbd> ace · quick mode <kbd>L</kbd> <kbd>M</kbd> <kbd>H</kbd> · <kbd>Z</kbd> undo · <kbd>R</kbd> reset<br>
+      Suits aren't tracked — suit-based payouts (perfect/colored pairs, flushes, suited 21) assume suits are evenly spread among remaining cards.<br>
+      Dealer rules: blackjack revealed after insurance vs an Ace · no check under a 10 (hidden blackjack is factored in).
+    </div>
+
+    </div><!-- /col-left -->
+
+    <div class="col-mid">
+      <div class="section-label">Live Strategy Chart — recomputed after every card
+        <button class="toggle-btn" id="btnChartMode">show cash-out value</button>
+        <span class="co-margin hidden" id="coMarginWrap">they pay <input type="number" id="coMargin" value="99" min="1" max="150" step="0.1">% of fair value</span>
+        <button class="toggle-btn" id="btnChartToggle">hide</button>
+      </div>
+      <div class="lc-wrap" id="liveChartWrap">
+        <div class="lc-legend">
+          <span><i style="background:#7e2b30"></i>Hit</span>
+          <span><i style="background:#2c4257"></i>Stand</span>
+          <span><i style="background:#8a6a1e"></i>Double</span>
+          <span><i style="background:#2c5c46"></i>Split</span>
+          <span><i style="background:#4a3a63"></i>Surrender</span>
+          <span><i style="background:#235952"></i>Free double</span>
+          <span><i style="background:linear-gradient(135deg,#7e2b30 50%,#2c4257 50%)"></i>Close call</span>
+        </div>
+        <table class="lc" id="liveChart"></table>
+        <div class="lc-note" id="lcNote">Solid cell = clear best play. Split-color cell (two letters) = close call — the first letter/color is slightly better. R = surrender, second letter is your play when surrender isn't possible. Yellow frame = the count changed the play vs fresh-shoe strategy (hover to see the normal play). No resplits assumed. In Free Bet: FD = FREE double, FP = FREE split.</div>
+        <div class="lc-note hidden" id="lcValNote">What each hand is worth per unit staked, played best, from the cards left in the shoe. <b>1.70</b> means a fair cash-out is 1.70&times; your bet — so on a 50 stake, 85. Take an offer only when it beats the number here. Gold = worth more than your stake, red = worth less. Hover a cell for the best play.</div>
+        <div class="lc-note hidden" id="lcCallNote">Where the buyout beats playing on. Their price was solved from four real offers: <b>99% of the hand's true value, rounded down to the nearest 5 cents</b> — matched to the cent on all four. Still open is whether that value is computed from a full shoe or the live one; if it tracks the live shoe every TAKE here disappears and the answer is simply never cash out. One offer noted at a true count past +3 or below −3 settles it. A fresh shoe shows no TAKE, which is right: at a neutral count their price and playing on are worth the same.</div>
+        <div class="lc-note" id="pairNote"></div>
+      </div>
+    </div><!-- /col-mid -->
+
+    <div class="col-right">
+      <div class="band" id="winBand">
+        <div class="band-title">Hand Win Rate — your total against every dealer card</div>
+        <div class="wr-pick" id="wrPick"></div>
+        <div class="wr-scroll"><table class="wr-strip" id="wrStrip"></table></div>
+        <div class="wr-detail" id="wrDetail"></div>
+        <div class="co-row">
+          <span class="co-lbl">Cash-out check</span>
+          <label>Your bet <input type="number" id="coBet" min="0" step="any"></label>
+          <label>They offer <input type="number" id="coOffer" min="0" step="any" placeholder="—"></label>
+          <span class="co-v" id="coVerdict">Type what the table offers to buy your hand.</span>
+        </div>
+      </div>
+    </div><!-- /col-right -->
+
+    </div><!-- /game-cols -->
+  </div>
+
+<script>
+  // ================= CONFIG =================
+  const PROVIDERS = {
+    evolution: { name: 'Evolution', das: false, surrender: false },
+    pragmatic: { name: 'Pragmatic Play', das: true, surrender: false },
+  };
+  const GAMES = { regular: 'Regular', freebet: 'Free Bet' };
+
+  let provider = 'evolution';
+  let game = 'regular';
+  let decks = 8;
+  let s17 = true;     // dealer stands on soft 17
+  let peek10 = false; // measured from real cash-out offers: no check under a ten
+  let baseBet = 50;
+
+  // Approximate base house edge (%) at perfect play, per table
+  const HOUSE_EDGE = {
+    'evolution-regular': 0.65,
+    'evolution-freebet': 1.55,
+    'pragmatic-regular': 0.41,
+    'pragmatic-freebet': 1.45,
+  };
+  // Bet ramp: true count → multiple of base bet (start raising at +2)
+  function betMultiplier(tc) {
+    if (tc < 2) return 1;
+    if (tc < 3) return 3;
+    if (tc < 4) return 5;
+    if (tc < 5) return 8;
+    return 10;
+  }
+
+  // ================= SHOE =================
+  const RANKS = [2,3,4,5,6,7,8,9,10,11]; // 11 = Ace, 10 = any ten-value
+  const rankLabel = r => r === 11 ? 'A' : String(r);
+  const hiLo = r => (r >= 2 && r <= 6) ? 1 : (r >= 7 && r <= 9) ? 0 : -1;
+  const grp = r => hiLo(r) === 1 ? 'low' : hiLo(r) === 0 ? 'mid' : 'high';
+  const perDeck = r => r === 10 ? 16 : 4;
+
+  let remaining = {};
+  let running = 0;
+  let log = [];
+
+  const $ = id => document.getElementById(id);
+  const totalRemaining = () => RANKS.reduce((s, r) => s + remaining[r], 0);
+  const totalCards = () => 52 * decks;
+
+  function resetShoe() {
+    remaining = {};
+    RANKS.forEach(r => remaining[r] = perDeck(r) * decks);
+    running = 0;
+    log = [];
+    render();
+  }
+
+  function recordCard(r) {
+    if (remaining[r] < 1 - 1e-9) return;
+    remaining[r]--;
+    running += hiLo(r);
+    log.push(r);
+    render();
+  }
+
+  // Quick mode: remove one statistically-average card from the group.
+  // Count stays exact; composition becomes a (very close) estimate.
+  const GROUPS = {
+    low:  { ranks: [2,3,4,5,6], val: 1,  chip: 'L', cls: 'low' },
+    mid:  { ranks: [7,8,9],     val: 0,  chip: 'M', cls: 'mid' },
+    high: { ranks: [10,11],     val: -1, chip: 'H', cls: 'high' },
+  };
+
+  function recordGroup(gk) {
+    const g = GROUPS[gk];
+    const avail = g.ranks.filter(r => remaining[r] > 1e-9);
+    const tot = avail.reduce((s, r) => s + remaining[r], 0);
+    if (tot < 1 - 1e-9) return;
+    const alloc = {};
+    for (const r of avail) {
+      const a = remaining[r] / tot;
+      alloc[r] = a;
+      remaining[r] -= a;
+    }
+    running += g.val;
+    log.push({ g: gk, alloc });
+    render();
+  }
+
+  function undo() {
+    if (!log.length) return;
+    const e = log.pop();
+    if (typeof e === 'number') {
+      remaining[e]++;
+      running -= hiLo(e);
+    } else {
+      for (const r in e.alloc) remaining[r] += e.alloc[r];
+      running -= GROUPS[e.g].val;
+    }
+    render();
+  }
+
+  // Insurance pays 2:1, so it only turns profitable once more than a third of
+  // the shoe is ten-valued — roughly a true count of +3, but this checks the
+  // real density rather than trusting the count.
+  function renderSideBets() {
+    const pct = v => (v >= 0 ? '+' : '') + (100 * v).toFixed(2) + '%';
+    const remTot = totalRemaining();
+    const pTen = remTot ? remaining[10] / remTot : 0;
+    const insEV = (3 * pTen - 1) / 2;
+    const short = remTot / 3 - remaining[10];
+
+    $('sbTable').innerHTML =
+      '<tr><th>Insurance</th><th>Tens Left</th><th>EV / Bet</th><th></th></tr>'
+      + `<tr class="${insEV > 0 ? 'pos' : ''}">`
+      + '<td>Dealer shows Ace</td>'
+      + `<td>${(100 * pTen).toFixed(1)}%</td>`
+      + `<td>${pct(insEV)}</td>`
+      + `<td class="verdict">${insEV > 0 ? 'TAKE ✓' : 'NO'}</td></tr>`;
+
+    const alert = $('sbAlert');
+    if (insEV > 0) {
+      alert.className = 'sb-alert go';
+      alert.textContent = `✓ TAKE INSURANCE — ${pct(insEV)} per bet`;
+    } else {
+      alert.className = 'sb-alert no';
+      alert.textContent = short > 0.5
+        ? `Insurance: no — ${fmtN(Math.ceil(short))} tens short of break-even (needs 33.3% of the shoe)`
+        : 'Insurance: line-ball — right at break-even, skip it';
+    }
+  }
+
+  // ================= HAND WIN RATE =================
+  // Win / push / lose for every action, from the exact cards left in the shoe.
+  // "Hit" means hit and then keep playing optimally, so the numbers describe
+  // the hand you would really play rather than a single draw.
+  let wrUp = 10, wrTotal = 16, wrSoft = false;
+  let wrBestEV = 0; // value of the selected hand, for the cash-out check
+
+  function solveHand(up, total, soft) {
+    // Same card removal as the chart: the upcard, plus the ace and its partner
+    // when the hand is soft (a soft 18 is an ace and a 7, nothing else).
+    const seen = soft ? [up, 11, total - 11] : [up];
+    const rem2 = shoeWithout(remaining, seen);
+    const N2 = RANKS.reduce((s, r) => s + rem2[r], 0);
+    const p = {};
+    RANKS.forEach(r => p[r] = N2 > 0 ? Math.max(rem2[r], 0) / N2 : 0);
+    const dist = dealerDistribution(up, p);
+
+    const stand = t => {
+      if (t > 21) return { w: 0, push: 0, l: 1, ev: -1 };
+      const o = standWL(t, dist);
+      return { w: o.w, push: Math.max(0, 1 - o.w - o.l), l: o.l, ev: o.w - o.l };
+    };
+    const memo = new Map();
+    function best(t, s) {
+      if (t > 21) return { w: 0, push: 0, l: 1, ev: -1 };
+      const key = t + (s ? 's' : 'h');
+      if (memo.has(key)) return memo.get(key);
+      const a = stand(t), b = hit(t, s);
+      const r = b.ev > a.ev ? b : a;
+      memo.set(key, r);
+      return r;
+    }
+    function hit(t, s) {
+      let w = 0, push = 0, l = 0;
+      for (const r of RANKS) {
+        if (!p[r]) continue;
+        const [nt, ns] = addCard(t, s, r);
+        const o = nt > 21 ? { w: 0, push: 0, l: 1 } : best(nt, ns);
+        w += p[r] * o.w; push += p[r] * o.push; l += p[r] * o.l;
+      }
+      return { w, push, l, ev: w - l };
+    }
+    function dbl(t, s, free) {
+      let w = 0, push = 0, l = 0;
+      for (const r of RANKS) {
+        if (!p[r]) continue;
+        const [nt] = addCard(t, s, r);
+        const o = stand(nt);
+        w += p[r] * o.w; push += p[r] * o.push; l += p[r] * o.l;
+      }
+      // On a free double the casino covers the extra unit: win two, lose one.
+      return { w, push, l, ev: free ? 2 * w - l : 2 * (w - l) };
+    }
+
+    const opts = [
+      { a: 'S', name: 'Stand', o: stand(total) },
+      { a: 'H', name: 'Hit', o: hit(total, soft) },
+      { a: 'D', name: 'Double', o: dbl(total, soft, false) },
+    ];
+    if (game === 'freebet' && !soft && total >= 9 && total <= 11) {
+      opts.push({ a: 'FD', name: 'Free double', o: dbl(total, soft, true) });
+    }
+    if (PROVIDERS[provider].surrender) {
+      opts.push({ a: 'R', name: 'Surrender', o: { w: 0, push: 0, l: 0, ev: -0.5, surr: true } });
+    }
+    return { opts, best: opts.reduce((x, y) => y.o.ev > x.o.ev ? y : x) };
+  }
+
+  // Totals are picked, not typed — hard 4-21 and soft 12-20 (A,A through A,9).
+  function renderPicker() {
+    const btn = (t, s) =>
+      `<button class="wr-num${wrTotal === t && wrSoft === s ? ' on' : ''}" data-t="${t}" data-s="${s ? 1 : 0}">${t}</button>`;
+    const range = (lo, hi, s) => {
+      let out = '';
+      for (let t = lo; t <= hi; t++) out += btn(t, s);
+      return out;
+    };
+    $('wrPick').innerHTML =
+      `<div class="wr-row"><span class="wr-rl">Hard</span>${range(4, 21, false)}</div>`
+      + `<div class="wr-row"><span class="wr-rl">Soft</span>${range(12, 20, true)}</div>`;
+  }
+
+  function renderWinRate() {
+    const strip = $('wrStrip');
+    if (!strip) return;
+    const total = wrTotal, soft = wrSoft;
+    renderPicker();
+    const CLS = { S: 'lcS', H: 'lcH', D: 'lcDH', FD: 'lcFD', R: 'lcR' };
+    const NAME = { S: 'STAND', H: 'HIT', D: 'DOUBLE', FD: 'FREE DBL', R: 'SURR' };
+    const pc = v => (100 * v).toFixed(1) + '%';
+    const evS = v => (v >= 0 ? '+' : '') + (100 * v).toFixed(1) + '%';
+
+    const solved = {};
+    let head = '<tr><th class="wr-lbl">Dealer shows</th>';
+    const r = { w: '', p: '', l: '', e: '', a: '' };
+    for (const up of RANKS) {
+      const s = solveHand(up, total, soft);
+      solved[up] = s;
+      const b = s.best.o;
+      const sel = wrUp === up ? ' wr-sel' : '';
+      const dash = !!b.surr;
+      head += `<th class="${sel}" data-up="${up}">${rankLabel(up)}</th>`;
+      r.w += `<td class="${sel}${!dash && b.w > b.l ? ' up' : ''}" data-up="${up}">${dash ? '—' : pc(b.w)}</td>`;
+      r.p += `<td class="${sel}" data-up="${up}">${dash ? '—' : pc(b.push)}</td>`;
+      r.l += `<td class="${sel}${!dash && b.l > b.w ? ' down' : ''}" data-up="${up}">${dash ? '—' : pc(b.l)}</td>`;
+      r.e += `<td class="${sel}${b.ev >= 0 ? ' up' : ' down'}" data-up="${up}">${evS(b.ev)}</td>`;
+      r.a += `<td class="wr-act ${CLS[s.best.a]}${sel}" data-up="${up}">${NAME[s.best.a]}</td>`;
+    }
+    strip.innerHTML = head + '</tr>'
+      + `<tr><td class="wr-lbl">Win</td>${r.w}</tr>`
+      + `<tr><td class="wr-lbl">Push</td>${r.p}</tr>`
+      + `<tr><td class="wr-lbl">Lose</td>${r.l}</tr>`
+      + `<tr><td class="wr-lbl">EV / bet</td>${r.e}</tr>`
+      + `<tr><td class="wr-lbl">Best play</td>${r.a}</tr>`;
+
+    const s = solved[wrUp], b = s.best.o;
+    $('wrDetail').innerHTML =
+      '<div>'
+      + `<div class="wr-dh">${soft ? 'Soft' : 'Hard'} ${total} vs dealer <b>${rankLabel(wrUp)}</b>`
+      + ` — best play <b>${NAME[s.best.a]}</b></div>`
+      + (b.surr
+          ? '<div class="wr-key">Surrender hands back half the bet — the hand is never played out.</div>'
+          : `<div class="wr-bar"><i class="w" style="width:${100 * b.w}%"></i>`
+            + `<i class="p" style="width:${100 * b.push}%"></i>`
+            + `<i class="l" style="width:${100 * b.l}%"></i></div>`
+            + `<div class="wr-key"><span>Win <b>${pc(b.w)}</b></span>`
+            + `<span>Push <b>${pc(b.push)}</b></span><span>Lose <b>${pc(b.l)}</b></span></div>`)
+      + '</div>'
+      + '<table class="wr-dt"><tr><th>Action</th><th>Win</th><th>Push</th><th>Lose</th><th>EV / bet</th></tr>'
+      + s.opts.map(o => `<tr class="${o === s.best ? 'best' : ''}"><td>${o.name}</td>`
+          + (o.o.surr ? '<td>—</td><td>—</td><td>—</td>'
+                      : `<td>${pc(o.o.w)}</td><td>${pc(o.o.push)}</td><td>${pc(o.o.l)}</td>`)
+          + `<td>${evS(o.o.ev)}</td></tr>`).join('')
+      + '</table>';
+    wrBestEV = b.ev;
+    renderCashout();
+  }
+
+
+  // A cash-out is only worth taking when they offer more than the hand is
+  // actually worth. Their price is set off a neutral shoe, so the count is
+  // exactly what tells you when that price is wrong.
+  function renderCashout() {
+    const v = $('coVerdict');
+    if (!v) return;
+    const bet = Number($('coBet').value);
+    const offer = Number($('coOffer').value);
+    const pc = x => (x >= 0 ? '+' : '') + (100 * x).toFixed(1) + '%';
+    if (!(bet > 0) || !($('coOffer').value !== '' && offer >= 0)) {
+      v.className = 'co-v';
+      v.textContent = 'Type what the table offers to buy your hand.';
+      return;
+    }
+    const offerEdge = (offer - bet) / bet;
+    const fair = bet * (1 + wrBestEV);
+    if (offerEdge > wrBestEV) {
+      v.className = 'co-v go';
+      v.textContent = `TAKE IT — they pay ${pc(offerEdge)} for a hand worth ${pc(wrBestEV)} (fair value ${fair.toFixed(2)})`;
+    } else {
+      v.className = 'co-v no';
+      v.textContent = `PLAY ON — hand is worth ${pc(wrBestEV)}, they only pay ${pc(offerEdge)} (fair value ${fair.toFixed(2)})`;
+    }
+  }
+
+  // ================= DEALER BUST =================
+  // Uses the same dealerDistribution() the strategy chart runs on, so these
+  // numbers move with the shoe rather than being fixed textbook values. For an
+  // Ace it already conditions on "no blackjack" (the ten hole card is excluded
+  // and the rest renormalised), which matches a table that announces it.
+  let dealerUp = null;
+
+  function dealerOdds(up) {
+    const N = totalRemaining();
+    if (N <= 0) return null;
+    const p = {};
+    RANKS.forEach(r => p[r] = Math.max(remaining[r], 0) / N);
+    return dealerDistribution(up, p);
+  }
+
+  function renderDealer() {
+    const grid = $('dealerGrid');
+    grid.innerHTML = RANKS.map(up => {
+      const d = dealerOdds(up);
+      const bust = d ? 100 * (d.bust || 0) : 0;
+      // Green where he is most likely to bust — those are your stand spots.
+      const cls = bust >= 40 ? 'hot' : bust >= 30 ? 'warm' : '';
+      return `<button class="dl-btn ${cls}${dealerUp === up ? ' sel' : ''}" data-up="${up}">`
+        + `<span class="dl-r">${rankLabel(up)}</span>`
+        + `<span class="dl-p">${bust.toFixed(1)}%</span></button>`;
+    }).join('');
+    [...grid.children].forEach(b => b.addEventListener('click', () => {
+      const up = +b.dataset.up;
+      dealerUp = (dealerUp === up) ? null : up;   // tap again to clear
+      renderDealer();
+    }));
+
+    const det = $('dealerDetail');
+    if (dealerUp === null) {
+      det.innerHTML = '<span class="dl-hint">Tap an upcard for the full breakdown</span>';
+      return;
+    }
+    const d = dealerOdds(dealerUp);
+    if (!d) { det.innerHTML = ''; return; }
+    const bust = 100 * (d.bust || 0);
+    const rows = [17, 18, 19, 20, 21].map(t => ({ t: String(t), v: 100 * (d[t] || 0) }));
+    if (d.bj) rows.push({ t: 'BJ', v: 100 * d.bj });
+    // Anything 17+ beats or ties most hands you would stand on.
+    const made = rows.reduce((s, r) => s + r.v, 0);
+    det.innerHTML =
+      `<div class="dl-head">Dealer shows <b>${rankLabel(dealerUp)}</b>`
+      + ` · busts <b class="dl-bust">${bust.toFixed(1)}%</b>`
+      + ` · makes a hand ${made.toFixed(1)}%</div>`
+      + '<div class="dl-bars">' + rows.map(r =>
+        `<div class="dl-bar"><span class="dl-bt">${r.t}</span>`
+        + `<span class="dl-bv" style="width:${Math.min(100, r.v * 2.2).toFixed(1)}%"></span>`
+        + `<span class="dl-bn">${r.v.toFixed(1)}%</span></div>`).join('')
+      + '</div>';
+  }
+
+  // ================= MAIN-HAND ADVISOR =================
+  function addCard(total, soft, r) {
+    let t = total + r, s = soft;
+    if (r === 11) { if (t > 21) t -= 10; else s = true; }
+    if (t > 21 && s) { t -= 10; s = false; }
+    return [t, s];
+  }
+
+  function buildProbs() {
+    const rem = totalRemaining();
+    const p = {};
+    RANKS.forEach(r => p[r] = rem ? remaining[r] / rem : 0);
+    return p;
+  }
+
+  // Outcomes: 17..21 (numeric), 'bust', 'bj' (hidden BJ under a 10), 'p22' (Free Bet dealer 22 push)
+  function dealerDistribution(up, p) {
+    const freebet = game === 'freebet';
+    const memo = new Map();
+    function play(total, soft) {
+      if (total > 21) return freebet && total === 22 ? { p22: 1 } : { bust: 1 };
+      const stand = total > 17 || (total === 17 && (!soft || s17));
+      if (total >= 17 && stand) return { [total]: 1 };
+      const key = total + (soft ? 's' : 'h');
+      if (memo.has(key)) return memo.get(key);
+      const dist = {};
+      for (const r of RANKS) {
+        if (!p[r]) continue;
+        const [t, s] = addCard(total, soft, r);
+        const sub = play(t, s);
+        for (const k in sub) dist[k] = (dist[k] || 0) + p[r] * sub[k];
+      }
+      memo.set(key, dist);
+      return dist;
+    }
+
+    const dist = {};
+    let mass = 0;
+    for (const h of RANKS) {
+      if (!p[h]) continue;
+      if (up === 11 && h === 10) continue; // BJ revealed after insurance
+      if (up === 10 && h === 11) {
+        // Peeking ends the round before you act, so those hands never reach
+        // the chart. Without a peek the blackjack is live and takes every
+        // bet you have out there, doubles and splits included.
+        if (peek10) continue;
+        dist.bj = (dist.bj || 0) + p[h]; mass += p[h]; continue;
+      }
+      const [t, s] = addCard(up, up === 11, h);
+      const sub = play(t, s);
+      for (const k in sub) dist[k] = (dist[k] || 0) + p[h] * sub[k];
+      mass += p[h];
+    }
+    if (mass > 0) for (const k in dist) dist[k] /= mass;
+    return dist;
+  }
+
+  // Win/lose probabilities standing on `total`
+  function standWL(total, dist) {
+    if (total > 21) return { w: 0, l: 1 };
+    let w = dist.bust || 0, l = dist.bj || 0; // p22 pushes → neither
+    for (const k in dist) {
+      if (k === 'bust' || k === 'bj' || k === 'p22') continue;
+      const dv = Number(k);
+      if (dv < total) w += dist[k];
+      else if (dv > total) l += dist[k];
+    }
+    return { w, l };
+  }
+
+  // ================= LIVE STRATEGY CHART =================
+  function chartSolver(rem) {
+    const N = RANKS.reduce((s, r) => s + rem[r], 0);
+    const p = {};
+    RANKS.forEach(r => p[r] = N > 0 ? Math.max(rem[r], 0) / N : 0);
+    const perUp = new Map();
+    function forUp(up) {
+      if (!perUp.has(up)) {
+        const dist = dealerDistribution(up, p);
+        const memo = new Map();
+        const sWL = t => standWL(t, dist);
+        const sEV = t => { const o = sWL(t); return o.w - o.l; };
+        function bestEV(total, s) {
+          if (total > 21) return -1;
+          const key = total + (s ? 's' : 'h');
+          if (memo.has(key)) return memo.get(key);
+          let hit = 0;
+          for (const r of RANKS) {
+            if (!p[r]) continue;
+            const [t, ns] = addCard(total, s, r);
+            hit += p[r] * (t > 21 ? -1 : bestEV(t, ns));
+          }
+          const v = Math.max(sEV(total), hit);
+          memo.set(key, v);
+          return v;
+        }
+        const hitEV = (total, s) => {
+          let h = 0;
+          for (const r of RANKS) {
+            if (!p[r]) continue;
+            const [t, ns] = addCard(total, s, r);
+            h += p[r] * (t > 21 ? -1 : bestEV(t, ns));
+          }
+          return h;
+        };
+        const dblEV = (total, s) => {
+          let d = 0;
+          for (const r of RANKS) {
+            if (!p[r]) continue;
+            const [t] = addCard(total, s, r);
+            const o = t > 21 ? { w: 0, l: 1 } : sWL(t);
+            d += p[r] * 2 * (o.w - o.l);
+          }
+          return d;
+        };
+        const fdEV = (total, s) => {
+          let d = 0;
+          for (const r of RANKS) {
+            if (!p[r]) continue;
+            const [t] = addCard(total, s, r);
+            const o = t > 21 ? { w: 0, l: 1 } : sWL(t);
+            d += p[r] * (2 * o.w - o.l);
+          }
+          return d;
+        };
+        // Same optimal hit/stand line as bestEV, but carrying win/push/lose so a
+        // free bet (paid on a win, costing nothing on a loss) can be priced.
+        const wlMemo = new Map();
+        function bestWL(total, s) {
+          if (total > 21) return { w: 0, push: 0, l: 1 };
+          const key = total + (s ? 's' : 'h');
+          if (wlMemo.has(key)) return wlMemo.get(key);
+          const o = sWL(total);
+          const stand = { w: o.w, push: Math.max(0, 1 - o.w - o.l), l: o.l };
+          let hw = 0, hp = 0, hl = 0;
+          for (const r of RANKS) {
+            if (!p[r]) continue;
+            const [t, ns] = addCard(total, s, r);
+            const sub = t > 21 ? { w: 0, push: 0, l: 1 } : bestWL(t, ns);
+            hw += p[r] * sub.w; hp += p[r] * sub.push; hl += p[r] * sub.l;
+          }
+          const res = (hw - hl) > (stand.w - stand.l) ? { w: hw, push: hp, l: hl } : stand;
+          wlMemo.set(key, res);
+          return res;
+        }
+        perUp.set(up, { sEV, sWL, hitEV, dblEV, fdEV, bestEV, bestWL });
+      }
+      return perUp.get(up);
+    }
+    return { p, forUp };
+  }
+
+  // Close-call band: if the top two plays are within this EV margin (per unit
+  // bet), show both letters instead of pretending one is clearly right.
+  const CLOSE_TH = 0.02;
+
+  function pickLabel(cands) {
+    cands.sort((x, y) => y.ev - x.ev);
+    const best = cands[0], second = cands[1];
+    // Surrender is only possible on your first two cards, so always show the
+    // fallback play next to R.
+    if (best.a === 'R' && second) {
+      return { label: 'R/' + second.a, primary: 'R', ev: best.ev };
+    }
+    if (second && best.ev - second.ev < CLOSE_TH) {
+      return { label: best.a + '/' + second.a, primary: best.a, ev: best.ev };
+    }
+    return { label: best.a, primary: best.a, ev: best.ev };
+  }
+
+  function handCell(S, up, total, soft, allowFD) {
+    const u = S.forUp(up);
+    const cands = [
+      { a: 'S', ev: u.sEV(total) },
+      { a: 'H', ev: u.hitEV(total, soft) },
+      { a: 'D', ev: u.dblEV(total, soft) },
+    ];
+    if (allowFD) cands.push({ a: 'FD', ev: u.fdEV(total, soft) });
+    if (PROVIDERS[provider].surrender) cands.push({ a: 'R', ev: -0.5 }); // late surrender
+    return pickLabel(cands);
+  }
+
+  function pairCell(S, up, pr) {
+    const [t1, s1] = addCard(0, false, pr);
+    const [t, s] = addCard(t1, s1, pr);
+    const freebet = game === 'freebet';
+    const u = S.forUp(up);
+
+    if (freebet && pr === 10) return handCell(S, up, t, s, false); // keep the 20
+    if (freebet && pr === 5) return handCell(S, up, t, s, true);   // 5,5 is a hard 10
+
+    if (freebet) {
+      // The casino stakes the second hand: it pays you when it wins and costs
+      // nothing when it loses, so the pair is worth (w - l) + w. Free doubles
+      // after the split would only add to that, so this is the floor.
+      let w = 0, l = 0;
+      for (const r of RANKS) {
+        if (!S.p[r]) continue;
+        const [ht, hs] = addCard(t1, s1, r);
+        const o = pr === 11 ? u.sWL(ht) : u.bestWL(ht, hs); // split aces get one card
+        w += S.p[r] * o.w;
+        l += S.p[r] * o.l;
+      }
+      const cands = [
+        { a: 'FP', ev: 2 * w - l },
+        { a: 'S', ev: u.sEV(t) },
+        { a: 'H', ev: u.hitEV(t, s) },
+        { a: 'D', ev: u.dblEV(t, s) },
+      ];
+      if (!s && t >= 9 && t <= 11) cands.push({ a: 'FD', ev: u.fdEV(t, s) });
+      return pickLabel(cands);
+    }
+
+    const das = PROVIDERS[provider].das; // double after split (not on split aces)
+    let split = 0;
+    for (const r of RANKS) {
+      if (!S.p[r]) continue;
+      const [ht, hs] = addCard(t1, s1, r);
+      let hv;
+      if (pr === 11) hv = u.sEV(ht); // split aces: one card only
+      else hv = das ? Math.max(u.bestEV(ht, hs), u.dblEV(ht, hs)) : u.bestEV(ht, hs);
+      split += S.p[r] * hv;
+    }
+    split *= 2;
+    const cands = [
+      { a: 'P', ev: split },
+      { a: 'S', ev: u.sEV(t) },
+      { a: 'H', ev: u.hitEV(t, s) },
+      { a: 'D', ev: u.dblEV(t, s) },
+    ];
+    if (PROVIDERS[provider].surrender) cands.push({ a: 'R', ev: -0.5 });
+    return pickLabel(cands);
+  }
+
+  const CHART_ROWS = [];
+  // Stops at 17: hard 18/19 are stand against every upcard at any count, so a
+  // row for them is dead weight. Soft 20 (A,9) stays — it does flip to double
+  // vs 5 and 6 once the count is high enough.
+  for (let t = 7; t <= 17; t++) CHART_ROWS.push({ key: String(t), kind: 'hard', total: t });
+  for (let x = 2; x <= 9; x++) CHART_ROWS.push({ key: 'A,' + x, kind: 'soft', total: 11 + x }); // A,9 = soft 20
+  for (const pr of [2,3,4,5,6,7,8,9,10,11]) CHART_ROWS.push({ key: pr === 11 ? 'A,A' : `${rankLabel(pr)},${rankLabel(pr)}`, kind: 'pair', pr });
+
+  // Cards already on the table are gone from the shoe, so take them out before
+  // solving: the dealer's upcard always, plus your own two whenever the row
+  // pins them down. A hard row can't be pinned down (16 might be 10+6 or 9+7),
+  // so those get the upcard removed and nothing more.
+  function rowCards(row) {
+    if (row.kind === 'soft') return [11, row.total - 11];
+    if (row.kind === 'pair') return [row.pr, row.pr];
+    return [];
+  }
+
+  function shoeWithout(rem, cards) {
+    const out = {};
+    RANKS.forEach(r => out[r] = rem[r]);
+    for (const c of cards) out[c] = Math.max(out[c] - 1, 0);
+    return out;
+  }
+
+  function computeChartLabels(rem) {
+    const freebet = game === 'freebet';
+    const cache = new Map();
+    const solverFor = cards => {
+      const key = cards.join(',');
+      let S = cache.get(key);
+      if (!S) { S = chartSolver(shoeWithout(rem, cards)); cache.set(key, S); }
+      return S;
+    };
+    const out = {};
+    for (const up of RANKS) {
+      for (const row of CHART_ROWS) {
+        const S = solverFor([up].concat(rowCards(row)).sort((a, b) => a - b));
+        let cell;
+        if (row.kind === 'hard') cell = handCell(S, up, row.total, false, freebet && row.total >= 9 && row.total <= 11);
+        else if (row.kind === 'soft') cell = handCell(S, up, row.total, true, false);
+        else cell = pairCell(S, up, row.pr);
+        out[row.key + '|' + up] = { label: cell.label, primary: cell.primary, ev: cell.ev };
+      }
+    }
+    return out;
+  }
+
+  let baselineChart = null;
+  let chartMode = 'plays'; // 'plays' | 'value'
+  const LC_CLS = { H: 'lcH', S: 'lcS', D: 'lcDH', P: 'lcP', FD: 'lcFD', FP: 'lcFP', R: 'lcR' };
+  const ACT_COLOR = {
+    H: '#7e2b30', S: '#2c4257', D: '#8a6a1e', P: '#2c5c46',
+    FD: '#235952', FP: '#2c5c46', R: '#4a3a63',
+  };
+
+  function renderLiveChart() {
+    if (!baselineChart || $('liveChartWrap').classList.contains('hidden')) return;
+    const labels = computeChartLabels(remaining);
+    let html = '<tr><th></th>' + RANKS.map(r => `<th>${rankLabel(r)}</th>`).join('') + '</tr>';
+    for (const row of CHART_ROWS) {
+      html += `<tr><td class="hand">${row.key}</td>`;
+      for (const up of RANKS) {
+        const k = row.key + '|' + up;
+        const cur = labels[k], base = baselineChart[k];
+        // Yellow only for a CLEAR change of play — close-call wobble stays quiet
+        const dev = cur.primary !== base.primary && !cur.label.includes('/');
+        // Two-action cells get a diagonal split of both actions' colors
+        const parts = cur.label.split('/');
+        const style = parts.length === 2 && ACT_COLOR[parts[0]] && ACT_COLOR[parts[1]]
+          ? ` style="background:linear-gradient(135deg,${ACT_COLOR[parts[0]]} 50%,${ACT_COLOR[parts[1]]} 50%)"`
+          : '';
+        if (chartMode === 'call') {
+          // ASSUMES their price ignores the shoe; yours is the shoe as it
+          // actually stands. Unverified — see lcCallNote. Take only where theirs is bigger.
+          const theirs = (Number($('coMargin').value) || 100) / 100 * (1 + base.ev);
+          const mine = 1 + cur.ev;
+          const take = theirs > mine;
+          html += `<td class="lccall${take ? ' take' : ''}" title="they pay ~${theirs.toFixed(2)}× — hand is worth ${mine.toFixed(2)}×">${take ? 'TAKE' : '—'}</td>`;
+        } else if (chartMode === 'value') {
+          // What the hand is worth per unit staked, so a cash-out offer divided
+          // by your bet can be compared straight against it.
+          const mult = 1 + cur.ev;
+          const cls = mult >= 1.02 ? 'v-up' : mult <= 0.98 ? 'v-dn' : 'v-flat';
+          html += `<td class="lcval ${cls}" title="${row.key} v ${rankLabel(up)} — best play ${cur.label}">${mult.toFixed(2)}</td>`;
+        } else {
+          html += `<td class="${LC_CLS[cur.primary]}${dev ? ' dev' : ''}"${style}${dev ? ` title="basic: ${base.label}"` : ''}>${cur.label}</td>`;
+        }
+      }
+      html += '</tr>';
+    }
+    $('liveChart').innerHTML = html;
+  }
+
+  // ================= RENDER =================
+  const rankButtonsEl = $('rankButtons');
+  RANKS.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'rank-btn grp-' + grp(r);
+    b.id = 'rank-' + r;
+    b.innerHTML = rankLabel(r) + '<span class="left" id="left-' + r + '"></span>';
+    b.addEventListener('click', () => recordCard(r));
+    rankButtonsEl.appendChild(b);
+  });
+
+  const fmtN = n => Math.abs(n - Math.round(n)) < 1e-6 ? String(Math.round(n)) : n.toFixed(1);
+
+
+  function render() {
+    const seen = Math.round(totalCards() - totalRemaining());
+    const rem = totalRemaining();
+    const dLeft = Math.max(rem / 52, 0.25);
+
+    const tc = running / dLeft;
+    const big = $('bigTrueCount');
+    big.textContent = (tc > 0 ? '+' : '') + tc.toFixed(1);
+    big.className = 'running-count ' + (tc > 0.05 ? 'positive' : tc < -0.05 ? 'negative' : '');
+    $('runningStat').textContent = running > 0 ? '+' + running : running;
+    $('cardsSeen').textContent = seen;
+    $('decksLeft').textContent = (rem / 52).toFixed(1);
+    $('tenPct').textContent = rem ? (100 * remaining[10] / rem).toFixed(1) + '%' : '—';
+    $('acePct').textContent = rem ? (100 * remaining[11] / rem).toFixed(1) + '%' : '—';
+
+    const advice = $('advice');
+    const he = HOUSE_EDGE[provider + '-' + game] || 0.6;
+    const edge = tc * 0.5 - he; // ~+0.5% per true count point
+    const edgeTxt = (edge >= 0 ? '+' : '') + edge.toFixed(2) + '% edge';
+    if (tc >= 2) {
+      advice.textContent = `🔥 BET HARD — ${edgeTxt}`;
+      advice.className = 'advice hot';
+    } else if (edge > 0) {
+      advice.textContent = `BET — ${edgeTxt}`;
+      advice.className = 'advice hot';
+    } else if (tc <= -1) {
+      advice.textContent = `Cold deck — bet minimum ${baseBet} · ${edgeTxt}`;
+      advice.className = 'advice cold';
+    } else {
+      advice.textContent = `Bet minimum ${baseBet} · ${edgeTxt}`;
+      advice.className = 'advice neutral';
+    }
+
+    const grid = $('remainingGrid');
+    grid.innerHTML = RANKS.map(r => {
+      const frac = remaining[r] / (perDeck(r) * decks);
+      const baseFrac = rem / totalCards();
+      const cls = frac > baseFrac + 0.08 ? 'rich' : frac < baseFrac - 0.08 ? 'poor' : '';
+      // Chance the NEXT card off the shoe is this rank. Tens carry four ranks,
+      // so their share is ~4x an individual rank's — that is the real draw
+      // probability, not a bug.
+      const pct = rem > 0 ? (100 * remaining[r] / rem) : 0;
+      const fresh = 100 * perDeck(r) / 52;   // its share in an untouched shoe
+      const drift = pct - fresh;
+      const dcls = drift > 0.4 ? 'up' : drift < -0.4 ? 'down' : '';
+      return `<div class="rem-cell ${cls}" title="${fmtN(remaining[r])} left of ${perDeck(r) * decks} · fresh shoe ${fresh.toFixed(1)}%">`
+        + `<div class="r">${rankLabel(r)}</div>`
+        + `<div class="n">${fmtN(remaining[r])}</div>`
+        + `<div class="p ${dcls}">${pct.toFixed(1)}%</div></div>`;
+    }).join('');
+    RANKS.forEach(r => {
+      $('left-' + r).textContent = fmtN(remaining[r]);
+      $('rank-' + r).classList.toggle('depleted', remaining[r] < 1 - 1e-9);
+    });
+
+    // Grouped draw chances. "5 or lower" is the one that decides whether a stiff
+    // hand can be hit safely; the Hi-Lo groups say which way the shoe is running.
+    const GROUP_P = [
+      { lbl: '6 or lower', ranks: [2, 3, 4, 5, 6] },   // same ranks as Hi-Lo's +1 group
+      { lbl: 'Mid 7–9', ranks: [7, 8, 9] },
+      { lbl: 'High 10–A', ranks: [10, 11] },
+    ];
+    $('remSummary').innerHTML = GROUP_P.map(g => {
+      const left = g.ranks.reduce((s, r) => s + remaining[r], 0);
+      const pct = rem > 0 ? 100 * left / rem : 0;
+      const fresh = g.ranks.reduce((s, r) => s + perDeck(r), 0) / 52 * 100;
+      const d = pct - fresh;
+      const cls = d > 0.4 ? 'up' : d < -0.4 ? 'down' : '';
+      const sign = d >= 0 ? '+' : '';
+      // Drift lives in the tooltip, not the tile — the colour already says which
+      // way it has gone, and a third number made the tiles overflow.
+      return `<div class="rs-cell" title="${fmtN(left)} cards · fresh shoe ${fresh.toFixed(1)}% · drift ${sign}${d.toFixed(1)}">`
+        + `<span class="rs-lbl">${g.lbl}</span>`
+        + `<span class="rs-pct ${cls}">${pct.toFixed(1)}%</span></div>`;
+    }).join('');
+
+    const hist = $('history');
+    if (!log.length) {
+      hist.innerHTML = '<span class="history-empty">No cards yet</span>';
+    } else {
+      hist.innerHTML = log.slice(-28).reverse().map((e, i) => {
+        const cls = typeof e === 'number' ? grp(e) : GROUPS[e.g].cls;
+        const lab = typeof e === 'number' ? rankLabel(e) : GROUPS[e.g].chip;
+        return `<span class="chip ${cls}${i === 0 ? ' latest' : ''}">${lab}</span>`;
+      }).join('');
+    }
+
+    renderSideBets();
+    renderWinRate();
+    renderDealer();
+    renderLiveChart();
+  }
+
+  // ================= NAVIGATION =================
+  let screen = 'dash';
+
+  function selectCard(gridId, attr, value) {
+    document.querySelectorAll('#' + gridId + ' .opt-card').forEach(c =>
+      c.classList.toggle('selected', c.dataset[attr] === value));
+  }
+  document.querySelectorAll('#providerGrid .opt-card').forEach(c =>
+    c.addEventListener('click', () => { provider = c.dataset.provider; selectCard('providerGrid', 'provider', provider); }));
+  document.querySelectorAll('#gameGrid .opt-card').forEach(c =>
+    c.addEventListener('click', () => { game = c.dataset.game; selectCard('gameGrid', 'game', game); }));
+
+  $('btnStart').addEventListener('click', () => {
+    decks = Number($('dashDecks').value);
+    s17 = $('dashS17').value === 's17';
+    peek10 = $('dashPeek').value === 'peek';
+    baseBet = Math.max(1, Number($('dashBaseBet').value) || 50);
+    $('coBet').value = baseBet;
+    screen = 'game';
+    $('screenDash').classList.add('hidden');
+    $('screenGame').classList.remove('hidden');
+    $('gameTitle').textContent =
+      `${PROVIDERS[provider].name} · ${GAMES[game]} · ${decks} decks · ${s17 ? 'S17' : 'H17'}` +
+      (game === 'freebet' ? ' · dealer 22 pushes' : '') +
+      (PROVIDERS[provider].das ? ' · DAS' : ' · no DAS') +
+      (peek10 ? '' : ' · no peek under 10') +
+      (PROVIDERS[provider].surrender ? ' · surrender' : '');
+    $('pairNote').textContent = game === 'freebet'
+      ? 'Pairs: take the FREE split on every pair except 10-value cards (keep your 20). Treat 5-5 as a hard 10 → free double.'
+      : '';
+    const fresh = {};
+    RANKS.forEach(r => fresh[r] = perDeck(r) * decks);
+    baselineChart = computeChartLabels(fresh);
+    resetShoe();
+  });
+
+  $('btnBack').addEventListener('click', () => {
+    screen = 'dash';
+    $('screenGame').classList.add('hidden');
+    $('screenDash').classList.remove('hidden');
+  });
+
+  $('btnUndo').addEventListener('click', undo);
+  $('btnReset').addEventListener('click', resetShoe);
+  $('btnGLow').addEventListener('click', () => recordGroup('low'));
+  $('btnGMid').addEventListener('click', () => recordGroup('mid'));
+  $('btnGHigh').addEventListener('click', () => recordGroup('high'));
+  $('coMargin').addEventListener('input', renderLiveChart);
+  $('btnChartMode').addEventListener('click', () => {
+    chartMode = chartMode === 'plays' ? 'value' : chartMode === 'value' ? 'call' : 'plays';
+    $('btnChartMode').textContent = chartMode === 'plays' ? 'show cash-out value'
+      : chartMode === 'value' ? 'show cash-out call' : 'show plays';
+    $('lcNote').classList.toggle('hidden', chartMode !== 'plays');
+    $('lcValNote').classList.toggle('hidden', chartMode !== 'value');
+    $('lcCallNote').classList.toggle('hidden', chartMode !== 'call');
+    $('coMarginWrap').classList.toggle('hidden', chartMode !== 'call');
+    renderLiveChart();
+  });
+  $('btnChartToggle').addEventListener('click', () => {
+    const wrap = $('liveChartWrap');
+    wrap.classList.toggle('hidden');
+    $('btnChartToggle').textContent = wrap.classList.contains('hidden') ? 'show' : 'hide';
+    if (!wrap.classList.contains('hidden')) renderLiveChart();
+  });
+
+  $('wrStrip').addEventListener('click', e => {
+    const c = e.target.closest('[data-up]');
+    if (!c) return;
+    wrUp = Number(c.dataset.up);
+    renderWinRate();
+  });
+  $('coBet').addEventListener('input', renderCashout);
+  $('coOffer').addEventListener('input', renderCashout);
+  $('wrPick').addEventListener('click', e => {
+    const b = e.target.closest('.wr-num');
+    if (!b) return;
+    wrTotal = Number(b.dataset.t);
+    wrSoft = b.dataset.s === '1';
+    renderWinRate();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (screen !== 'game') return;
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT') return;
+    const k = e.key.toLowerCase();
+    if (k >= '2' && k <= '9') recordCard(Number(k));
+    else if (k === '0' || k === 't' || k === 'j' || k === 'q' || k === 'k') recordCard(10);
+    else if (k === 'a') recordCard(11);
+    else if (k === 'l') recordGroup('low');
+    else if (k === 'm') recordGroup('mid');
+    else if (k === 'h') recordGroup('high');
+    else if (k === 'z') undo();
+    else if (k === 'r') resetShoe();
+  });
+</script>
+</body>
+</html>
