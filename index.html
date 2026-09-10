@@ -207,6 +207,7 @@
   .game-cols { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; width: 100%; }
   .col-left { flex: 0 1 520px; min-width: 300px; }
   .col-mid { flex: 1 1 620px; min-width: 340px; }   /* strategy chart */
+  .col-right { flex: 1 1 430px; min-width: 320px; } /* cash-out values */
   .lc-wrap { max-width: 100%; overflow-x: auto; }
   /* Sized by its cells, NOT stretched to the container — on a wide/fullscreen
      window the table keeps its natural width instead of ballooning. It only
@@ -266,6 +267,31 @@
     color: #ffe9a8; text-shadow: 0 0 3px rgba(0,0,0,0.9);
   }
   .co-key { color: #ffe9a8; }
+  .cash-panel {
+    background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+    border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .cash-p { font-size: 0.74rem; color: var(--muted); line-height: 1.65; margin-bottom: 10px; }
+  .cash-p b { color: var(--text); }
+  .cash-note { margin: 10px 0 0; border-top: 1px solid var(--line); padding-top: 10px; }
+  .cash-key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.68rem; color: var(--muted); margin-bottom: 10px; }
+  .cash-key span { display: inline-flex; align-items: center; gap: 5px; }
+  .cash-key i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+  .cash-key i.k-up { background: #8a6a1e; }
+  .cash-key i.k-dn { background: #7e2b30; }
+  .cash-tbl { border-collapse: collapse; table-layout: fixed; width: auto; }
+  .cash-tbl th, .cash-tbl td {
+    border: 1px solid var(--bg); text-align: center; padding: 1px;
+    font-size: 0.63rem; height: 22px; min-width: 34px;
+    font-variant-numeric: tabular-nums; font-weight: 700;
+  }
+  .cash-tbl th { background: #1a1a22; color: var(--gold); }
+  .cash-tbl td.hand { background: #1a1a22; color: var(--text); font-size: 0.6rem; }
+  .cash-tbl td.up { background: #241d10; color: #e8c964; }
+  .cash-tbl td.dn { background: #2a1417; color: #e08d92; }
+  .cash-tbl td.co { outline: 2px solid var(--gold); outline-offset: -2px; }
+  @media (max-width: 900px) { .cash-tbl th, .cash-tbl td { min-width: 0; font-size: 0.56rem; } }
   .lc-note { font-size: 0.69rem; color: var(--muted); margin-top: 8px; max-width: 560px; line-height: 1.65; }
   .toggle-btn {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
@@ -497,6 +523,22 @@
       </div>
     </div><!-- /col-mid -->
 
+
+    <div class="col-right">
+      <div class="section-label">Cash Out — what your hand is worth</div>
+      <div class="cash-panel">
+        <p class="cash-p">They buy your hand for <b>99%</b> of its true value. The table is what each
+        hand is worth <b>per unit staked</b> right now — multiply by your bet for the fair price,
+        and their button will read about 1% under it.</p>
+        <div class="cash-key">
+          <span><i class="k-up"></i>worth more than your stake</span>
+          <span><i class="k-dn"></i>worth less</span>
+          <span><b class="co-key">€</b> on the strategy chart = taking it beats playing on</span>
+        </div>
+        <div class="lc-wrap"><table class="cash-tbl" id="cashChart"></table></div>
+        <p class="cash-p cash-note" id="cashExample"></p>
+      </div>
+    </div><!-- /col-right -->
 
     </div><!-- /game-cols -->
   </div>
@@ -1011,6 +1053,39 @@
       html += '</tr>';
     }
     $('liveChart').innerHTML = html;
+    renderCashChart(labels);
+  }
+
+  // Same numbers the strategy chart runs on, shown as money rather than a letter.
+  function renderCashChart(labels) {
+    const t = $('cashChart');
+    if (!t) return;
+    let html = '<tr><th></th>' + RANKS.map(r => `<th>${rankLabel(r)}</th>`).join('') + '</tr>';
+    for (const row of CHART_ROWS) {
+      html += `<tr><td class="hand">${row.key}</td>`;
+      for (const up of RANKS) {
+        const k = row.key + '|' + up;
+        const cur = labels[k], base = baselineChart[k];
+        const worth = 1 + cur.ev;
+        const co = CASHOUT_PAYS * (1 + base.ev) - worth > CASHOUT_MIN_EDGE;
+        html += `<td class="${worth >= 1 ? 'up' : 'dn'}${co ? ' co' : ''}">${worth.toFixed(2)}</td>`;
+      }
+      html += '</tr>';
+    }
+    t.innerHTML = html;
+
+    // A worked example at the stake actually in play, so the trade-off is concrete.
+    const bet = baseBet;
+    const w16 = 1 + labels['16|10'].ev;
+    const fair = bet * w16, offer = Math.floor(CASHOUT_PAYS * fair * 20) / 20;
+    $('cashExample').innerHTML =
+      `<b>Cashing out a big bet.</b> On a ${bet} stake a hard 16 vs 10 is worth `
+      + `${w16.toFixed(2)}× — fair value ${fair.toFixed(2)}, so they would offer about `
+      + `<b>${offer.toFixed(2)}</b>. Taking it costs roughly <b>${(fair - offer).toFixed(2)}</b> in `
+      + `expected value but takes the whole ${bet} off the table. That is a bad deal on a deep `
+      + `bankroll and a defensible one on a thin one — you are paying a small fee to cut variance `
+      + `at your moment of biggest exposure. Where the strategy chart shows a € it is not even a `
+      + `fee: the count has moved the hand far enough that their price genuinely beats playing on.`;
   }
 
   // ================= RENDER =================
