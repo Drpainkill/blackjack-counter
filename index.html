@@ -391,43 +391,12 @@
     background: linear-gradient(180deg, #d9b64a, #9b7d24);
     border-color: var(--gold); color: #17150c;
   }
-  .wr-scroll { overflow-x: auto; }
-  .wr-strip { border-collapse: collapse; width: 100%; }
-  .wr-strip th, .wr-strip td {
-    border: 1px solid var(--bg); text-align: center; padding: 6px 4px;
-    font-size: 0.82rem; font-variant-numeric: tabular-nums; min-width: 48px;
-  }
-  .wr-strip th { background: #1a1a22; color: var(--gold); font-size: 0.92rem; font-weight: 800; cursor: pointer; }
-  .wr-strip .wr-lbl {
-    background: #1a1a22; color: var(--muted); text-align: left; font-size: 0.6rem;
-    text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;
-    min-width: 84px; position: sticky; left: 0; z-index: 1; cursor: default;
-  }
-  .wr-strip td { background: var(--panel); cursor: pointer; }
-  .wr-strip td.up { color: var(--gold); font-weight: 700; }
-  .wr-strip td.down { color: var(--red-soft); }
-  .wr-strip .wr-sel { box-shadow: inset 0 0 0 2px var(--gold); }
-  .wr-strip td.wr-act { font-weight: 800; letter-spacing: 0.4px; font-size: 0.7rem; color: #f4f0ea; }
+  .co-hand { margin: 12px 0 4px; }
+  .co-h1 { font-size: 0.95rem; font-weight: 700; }
+  .co-h1 b { color: var(--gold); }
+  .co-h2 { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
+  .co-h2 b { color: var(--gold); font-variant-numeric: tabular-nums; }
 
-  .wr-detail { margin-top: 14px; display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
-  .wr-dh { font-size: 0.95rem; font-weight: 700; margin-bottom: 9px; }
-  .wr-dh b { color: var(--gold); }
-  .wr-bar { display: flex; height: 17px; border-radius: 5px; overflow: hidden; width: 340px; max-width: 100%; border: 1px solid var(--line); }
-  .wr-bar i { display: block; height: 100%; }
-  .wr-bar i.w { background: linear-gradient(180deg, #d4af37, #9b7d24); }
-  .wr-bar i.p { background: #3c3c47; }
-  .wr-bar i.l { background: linear-gradient(180deg, #a3181f, #6b0d12); }
-  .wr-key { display: flex; gap: 16px; margin-top: 8px; font-size: 0.72rem; color: var(--muted); }
-  .wr-key b { font-variant-numeric: tabular-nums; color: var(--text); }
-  .wr-dt { border-collapse: collapse; }
-  .wr-dt th {
-    font-size: 0.55rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px;
-    text-align: right; padding: 3px 14px 6px 0; font-weight: 700; border-bottom: 1px solid var(--line);
-  }
-  .wr-dt th:first-child { text-align: left; }
-  .wr-dt td { font-size: 0.85rem; padding: 5px 14px 5px 0; text-align: right; font-variant-numeric: tabular-nums; }
-  .wr-dt td:first-child { text-align: left; font-weight: 600; }
-  .wr-dt tr.best td { color: var(--gold); font-weight: 800; }
   .co-row {
     display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
     margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
@@ -593,18 +562,18 @@
     </div><!-- /col-mid -->
 
     <div class="col-right">
-      <div class="band" id="winBand">
-        <div class="band-title">Hand Win Rate — your total against every dealer card</div>
+      <div class="band" id="coBand">
+        <div class="band-title">Cash-out check — is their offer better than playing on?</div>
         <div class="wr-pick" id="wrPick"></div>
-        <div class="wr-scroll"><table class="wr-strip" id="wrStrip"></table></div>
-        <div class="wr-detail" id="wrDetail"></div>
+        <div class="wr-row" id="coUpRow"></div>
+        <div class="co-hand" id="coHand"></div>
         <div class="co-row">
-          <span class="co-lbl">Cash-out check</span>
           <label>Your bet <input type="number" id="coBet" min="0" step="any"></label>
           <label>They offer <input type="number" id="coOffer" min="0" step="any" placeholder="—"></label>
           <span class="co-v" id="coVerdict">Type what the table offers to buy your hand.</span>
         </div>
       </div>
+
     </div><!-- /col-right -->
 
     </div><!-- /game-cols -->
@@ -819,63 +788,28 @@
     $('wrPick').innerHTML =
       `<div class="wr-row"><span class="wr-rl">Hard</span>${range(4, 21, false)}</div>`
       + `<div class="wr-row"><span class="wr-rl">Soft</span>${range(12, 20, true)}</div>`;
+    $('coUpRow').innerHTML = '<span class="wr-rl">Dealer</span>'
+      + RANKS.map(up => `<button class="wr-num${wrUp === up ? ' on' : ''}" data-up="${up}">${rankLabel(up)}</button>`).join('');
   }
 
   function renderWinRate() {
-    const strip = $('wrStrip');
-    if (!strip) return;
-    const total = wrTotal, soft = wrSoft;
+    const el = $('coHand');
+    if (!el) return;
     renderPicker();
-    const CLS = { S: 'lcS', H: 'lcH', D: 'lcDH', FD: 'lcFD', R: 'lcR' };
-    const NAME = { S: 'STAND', H: 'HIT', D: 'DOUBLE', FD: 'FREE DBL', R: 'SURR' };
-    const pc = v => (100 * v).toFixed(1) + '%';
-    const evS = v => (v >= 0 ? '+' : '') + (100 * v).toFixed(1) + '%';
-
-    const solved = {};
-    let head = '<tr><th class="wr-lbl">Dealer shows</th>';
-    const r = { w: '', p: '', l: '', e: '', a: '' };
-    for (const up of RANKS) {
-      const s = solveHand(up, total, soft);
-      solved[up] = s;
-      const b = s.best.o;
-      const sel = wrUp === up ? ' wr-sel' : '';
-      const dash = !!b.surr;
-      head += `<th class="${sel}" data-up="${up}">${rankLabel(up)}</th>`;
-      r.w += `<td class="${sel}${!dash && b.w > b.l ? ' up' : ''}" data-up="${up}">${dash ? '—' : pc(b.w)}</td>`;
-      r.p += `<td class="${sel}" data-up="${up}">${dash ? '—' : pc(b.push)}</td>`;
-      r.l += `<td class="${sel}${!dash && b.l > b.w ? ' down' : ''}" data-up="${up}">${dash ? '—' : pc(b.l)}</td>`;
-      r.e += `<td class="${sel}${b.ev >= 0 ? ' up' : ' down'}" data-up="${up}">${evS(b.ev)}</td>`;
-      r.a += `<td class="wr-act ${CLS[s.best.a]}${sel}" data-up="${up}">${NAME[s.best.a]}</td>`;
-    }
-    strip.innerHTML = head + '</tr>'
-      + `<tr><td class="wr-lbl">Win</td>${r.w}</tr>`
-      + `<tr><td class="wr-lbl">Push</td>${r.p}</tr>`
-      + `<tr><td class="wr-lbl">Lose</td>${r.l}</tr>`
-      + `<tr><td class="wr-lbl">EV / bet</td>${r.e}</tr>`
-      + `<tr><td class="wr-lbl">Best play</td>${r.a}</tr>`;
-
-    const s = solved[wrUp], b = s.best.o;
-    $('wrDetail').innerHTML =
-      '<div>'
-      + `<div class="wr-dh">${soft ? 'Soft' : 'Hard'} ${total} vs dealer <b>${rankLabel(wrUp)}</b>`
-      + ` — best play <b>${NAME[s.best.a]}</b></div>`
-      + (b.surr
-          ? '<div class="wr-key">Surrender hands back half the bet — the hand is never played out.</div>'
-          : `<div class="wr-bar"><i class="w" style="width:${100 * b.w}%"></i>`
-            + `<i class="p" style="width:${100 * b.push}%"></i>`
-            + `<i class="l" style="width:${100 * b.l}%"></i></div>`
-            + `<div class="wr-key"><span>Win <b>${pc(b.w)}</b></span>`
-            + `<span>Push <b>${pc(b.push)}</b></span><span>Lose <b>${pc(b.l)}</b></span></div>`)
-      + '</div>'
-      + '<table class="wr-dt"><tr><th>Action</th><th>Win</th><th>Push</th><th>Lose</th><th>EV / bet</th></tr>'
-      + s.opts.map(o => `<tr class="${o === s.best ? 'best' : ''}"><td>${o.name}</td>`
-          + (o.o.surr ? '<td>—</td><td>—</td><td>—</td>'
-                      : `<td>${pc(o.o.w)}</td><td>${pc(o.o.push)}</td><td>${pc(o.o.l)}</td>`)
-          + `<td>${evS(o.o.ev)}</td></tr>`).join('')
-      + '</table>';
+    const NAME = { S: 'STAND', H: 'HIT', D: 'DOUBLE', FD: 'FREE DOUBLE', R: 'SURRENDER' };
+    const s = solveHand(wrUp, wrTotal, wrSoft);
+    const b = s.best.o;
     wrBestEV = b.ev;
+    const pc = v => (100 * v).toFixed(1) + '%';
+    el.innerHTML =
+      `<div class="co-h1">${wrSoft ? 'Soft' : 'Hard'} ${wrTotal} vs dealer <b>${rankLabel(wrUp)}</b>`
+      + ` — best play <b>${NAME[s.best.a]}</b></div>`
+      + `<div class="co-h2">Worth <b>${(1 + b.ev).toFixed(2)}×</b> your stake`
+      + (b.surr ? '' : ` · win ${pc(b.w)} · push ${pc(b.push)} · lose ${pc(b.l)}`)
+      + '</div>';
     renderCashout();
   }
+
 
 
   // A cash-out is only worth taking when they offer more than the hand is
@@ -892,14 +826,15 @@
       v.textContent = 'Type what the table offers to buy your hand.';
       return;
     }
-    const offerEdge = (offer - bet) / bet;
     const fair = bet * (1 + wrBestEV);
-    if (offerEdge > wrBestEV) {
+    const theirs = offer / bet;             // same units as the value line above
+    const mine = 1 + wrBestEV;
+    if (offer > fair) {
       v.className = 'co-v go';
-      v.textContent = `TAKE IT — they pay ${pc(offerEdge)} for a hand worth ${pc(wrBestEV)} (fair value ${fair.toFixed(2)})`;
+      v.textContent = `TAKE IT — they pay ${theirs.toFixed(2)}× for a hand worth ${mine.toFixed(2)}× (fair value ${fair.toFixed(2)})`;
     } else {
       v.className = 'co-v no';
-      v.textContent = `PLAY ON — hand is worth ${pc(wrBestEV)}, they only pay ${pc(offerEdge)} (fair value ${fair.toFixed(2)})`;
+      v.textContent = `PLAY ON — hand is worth ${mine.toFixed(2)}× (${fair.toFixed(2)}), they only pay ${theirs.toFixed(2)}×`;
     }
   }
 
@@ -1458,7 +1393,7 @@
     if (!wrap.classList.contains('hidden')) renderLiveChart();
   });
 
-  $('wrStrip').addEventListener('click', e => {
+  $('coUpRow').addEventListener('click', e => {
     const c = e.target.closest('[data-up]');
     if (!c) return;
     wrUp = Number(c.dataset.up);
